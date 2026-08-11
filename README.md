@@ -1,34 +1,41 @@
-# SS — Second Brain v0.8.3
+# SS — Second Brain v0.8.4
 
-A local-first AI orchestrator with one integrated multi-provider console.
+**Single application entry point:** `http://127.0.0.1:8765/`
 
-## Current architecture
+SS is a local-first intelligent orchestration layer. It selects among local models, privacy-oriented gateways and frontier/reasoning providers according to task capability, privacy and available compute. It is not locked to Ollama or Venice.
 
-- **Single user entry point:** `http://127.0.0.1:8765/`
-- Integrated console: `/console` (also `/providers`)
-- Local backends: Ollama, Jan, LM Studio/Bionic
-- Cloud/gateway backends: OpenRouter, Hugging Face Inference Providers, Venice, OpenAI, Anthropic/Claude, Google Gemini, xAI/Grok, DeepSeek, Mistral, Moonshot/Kimi, Z.ai/GLM, Qwen/Alibaba Model Studio, Perplexity
-- Search layer: Brave Search adapter
-- Resource telemetry: RAM/CPU/swap exposed to SS routing
-- Credential storage: Windows/OS credential store through `keyring`; secrets are not committed to GitHub
-- Permanent chat archive outside the repository; optional cloud mirror via `SS_CHAT_CLOUD_ROOT`
-- **Deletion policy: NEVER automatically delete chats or generated conversation archives.**
-- No Docker or WSL required.
+## What is live in v0.8.4
+
+- Real Second Brain chat UI at `/`.
+- Provider console at `/console` and `/providers`.
+- Permanent external chat archive with chat list and reload.
+- No automatic chat deletion/pruning/cleanup.
+- Optional cloud mirror via `SS_CHAT_CLOUD_ROOT`.
+- OS credential-store integration through `keyring`; keys are not committed to GitHub.
+- Explicit per-request approval before a cloud chat can be sent.
+- OpenRouter ZDR + `data_collection: deny` request mode.
+- Resource telemetry: RAM, CPU and swap.
+- Routing policy scaffolding for privacy, research, coding and complex reasoning.
+- Local backends: Ollama, LM Studio/Bionic, Jan.
+- Cloud/gateway backends: OpenRouter, Hugging Face Inference, Venice, OpenAI, Anthropic, Gemini, xAI, DeepSeek, Mistral, Moonshot/Kimi, Z.ai/GLM, Qwen/Alibaba Model Studio, Perplexity.
+- Separate connector layer: Brave Search API, Higgsfield MCP, DuckDuckGo browser search, Tor transport/browser, HuggingChat web UI and Meta AI web UI.
+
+## Important distinction
+
+A provider being listed does not mean that its private credential or local server is magically available. SS performs real endpoint/model discovery and reports the actual boundary. It does not invent APIs. For services that currently expose browser/MCP access rather than a normal public API, SS presents the real connector instead.
 
 ## Windows
 
-Run `run-SS.bat`. It creates/uses `.venv`, installs the pinned application dependencies, opens `http://127.0.0.1:8765/`, and starts FastAPI.
-
-## Provider setup
-
-Open **SS AI Console → select provider → enter key → Save key securely & test**. Cloud credentials are stored in the OS credential store when available. The console includes official setup links for the supported services.
-
-For local providers, SS only connects to an API that is actually running; it does not silently install or download large models. Model loading/unloading and RAM-aware selection are part of the resource-aware provider layer.
+Run `run-SS.bat`. It creates/uses `.venv`, installs the requirements and opens **127.0.0.1:8765**. A GitHub update changes source code only; the already-running Windows process must be restarted after pulling the repository.
 
 ## Data safety
 
-Application source is versioned in GitHub; user chats are not. Conversation archives live outside the repository under the SS application-data directory and can optionally be mirrored to a synchronized cloud folder. Code updates must not overwrite those directories.
+Application source is versioned in GitHub. User chats are not stored in the repository. They live under the SS application-data directory outside the code. This separation is deliberate: updating or replacing application code must not overwrite conversation archives.
 
-## Important limitation
+The previous 8766 provider-console prototype was inspected and found to keep chat messages only in JavaScript memory. That was a real persistence defect. v0.8.4 fixes the architecture by persisting successful chats outside the repository.
 
-A GitHub commit updates the source repository, not an already-running Windows process. After pulling the current branch, restart `run-SS.bat` so the local `127.0.0.1:8765` server uses the new version.
+**Do not delete or clear the old 8766 application/browser data until the recovery procedure in `docs/RECOVER-8766-CHAT.md` has been attempted.**
+
+## Development state
+
+`docs/SS_PROJECT_STATE.md` is the compact persistent specification recovered from the supplied Second Brain development material. Future SS development should update that state rather than relying on one ChatGPT conversation to remember another conversation.
