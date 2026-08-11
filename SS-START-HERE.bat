@@ -6,7 +6,7 @@ if exist "%USERPROFILE%\SS-Second-Brain\.git" (set "TARGET=%USERPROFILE%\SS-Seco
 if exist "%USERPROFILE%\SS\.git" (set "TARGET=%USERPROFILE%\SS"&goto RUN)
 where git >nul 2>nul
 if errorlevel 1 (
-  where winget >nul 2>nul || (echo Git and winget are unavailable. Install Git for Windows, then run this again.&pause&exit /b 1)
+  where winget >nul 2>nul || (echo Git and winget are unavailable. Install Git for Windows once, then run this again.&start "" "https://git-scm.com/download/win"&pause&exit /b 1)
   winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements
   set "PATH=%ProgramFiles%\Git\cmd;%PATH%"
 )
@@ -16,3 +16,4 @@ set "TARGET=%USERPROFILE%\SS-Second-Brain"
 :RUN
 cd /d "%TARGET%"
 call run-SS.bat
+endlocal
