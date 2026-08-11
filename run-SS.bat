@@ -30,8 +30,9 @@ if not exist .venv\Scripts\python.exe "%PY%" -m venv .venv
 set "PY=.venv\Scripts\python.exe"
 %PY% -m pip install -r requirements.txt
 if errorlevel 1 (echo ERROR: dependency installation failed.&pause&exit /b 1)
-for /f "tokens=2" %%P in ('powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object {$_.CommandLine -match 'uvicorn app:APP.*8765'} | Select-Object -ExpandProperty ProcessId"') do taskkill /PID %%P /F >nul 2>nul
+for /f "tokens=2" %%P in ('powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object {$_.CommandLine -match 'uvicorn (app|ss_server):APP.*8765'} | Select-Object -ExpandProperty ProcessId"') do taskkill /PID %%P /F >nul 2>nul
 start "SS Second Brain" http://127.0.0.1:8765/
 echo SS Second Brain is starting at http://127.0.0.1:8765/
-echo Version endpoint: http://127.0.0.1:8765/system
-%PY% -m uvicorn app:APP --host 127.0.0.1 --port 8765
+echo Workspace: http://127.0.0.1:8765/workspace
+echo System: http://127.0.0.1:8765/system
+%PY% -m uvicorn ss_server:APP --host 127.0.0.1 --port 8765
