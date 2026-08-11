@@ -10,9 +10,11 @@ echo.
 if not exist .git (echo ERROR: this folder is not a Git checkout. & pause & exit /b 1)
 
 set "DATA=%LOCALAPPDATA%\SS\data"
-set "BACKUP=%LOCALAPPDATA%\SS\data\backups\before-git-update-%DATE:/=-%_%TIME::=-%"
+set "BACKUPROOT=%LOCALAPPDATA%\SS\backups"
+set "STAMP=%DATE:/=-%_%TIME::=-%"
+set "BACKUP=%BACKUPROOT%\before-git-update-%STAMP%"
 if exist "%DATA%" (
-  echo Backing up existing SS data before code update...
+  echo Backing up existing SS data BEFORE the code update...
   mkdir "%BACKUP%" >nul 2>nul
   xcopy "%DATA%" "%BACKUP%" /E /I /H /Y >nul
   if errorlevel 1 (echo WARNING: backup copy reported an error. UPDATE STOPPED. & pause & exit /b 2)
@@ -31,7 +33,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Starting SS Second Brain v0.8.4 on the single 8765 entry point...
+echo Starting SS Second Brain on the single 8765 entry point...
 if not exist .venv\Scripts\python.exe python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 start "SS Second Brain" http://127.0.0.1:8765/
