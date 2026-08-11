@@ -1,13 +1,11 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pathlib import Path
 import httpx,time,json,os,re
 from datetime import datetime,timezone
 app=FastAPI(title="SS Second Brain",version="0.8.2")
-# DATA SAFETY: chat data lives outside the repository and is never deleted by version updates.
 def data_root():
-    root=(Path(os.environ.get("LOCALAPPDATA",Path.home()))/"SS"/"chats") if os.name=="nt" else (Path(os.environ.get("XDG_DATA_HOME",Path.home()/".local/share"))/"SS"/"chats")
-    root.mkdir(parents=True,exist_ok=True);return root
+    root=(Path(os.environ.get("LOCALAPPDATA",Path.home()))/"SS"/"chats") if os.name=="nt" else (Path(os.environ.get("XDG_DATA_HOME",Path.home()/".local/share"))/"SS"/"chats");root.mkdir(parents=True,exist_ok=True);return root
 def cloud_root():
     v=os.environ.get("SS_CHAT_CLOUD_ROOT","").strip()
     if not v:return None
@@ -15,15 +13,15 @@ def cloud_root():
 def safe_id(v):return (re.sub(r"[^A-Za-z0-9._-]+","_",str(v or "chat"))[:120] or "chat")
 def write_chat(c):
     c=dict(c);c.setdefault("created_at",datetime.now(timezone.utc).isoformat());c["updated_at"]=datetime.now(timezone.utc).isoformat();payload=json.dumps(c,ensure_ascii=False,indent=2);targets=[data_root()/f"{safe_id(c['id'])}.json"];cr=cloud_root();targets += [cr/f"{safe_id(c['id'])}.json"] if cr else []
-    for p in targets:
-        p.parent.mkdir(parents=True,exist_ok=True);tmp=p.with_suffix('.tmp');tmp.write_text(payload,encoding='utf-8');os.replace(tmp,p)
+    for p in targets:p.parent.mkdir(parents=True,exist_ok=True);tmp=p.with_suffix('.tmp');tmp.write_text(payload,encoding='utf-8');os.replace(tmp,p)
     return {"local":str(targets[0]),"cloud":str(targets[1]) if len(targets)>1 else None}
-PROVIDERS={
-"ollama":{"name":"Ollama","kind":"local","base":"http://127.0.0.1:11434"},"lmstudio":{"name":"LM Studio / Bionic","kind":"local","base":"http://127.0.0.1:1234/v1"},"jan":{"name":"Jan","kind":"local","base":"http://127.0.0.1:1337/v1"},"openrouter":{"name":"OpenRouter · ZDR","kind":"cloud-zdr","base":"https://openrouter.ai/api/v1"},"venice":{"name":"Venice AI","kind":"cloud-private","base":"https://api.venice.ai/api/v1"},"openai":{"name":"OpenAI","kind":"cloud-api","base":"https://api.openai.com/v1"},"anthropic":{"name":"Anthropic / Claude","kind":"cloud-api","base":"https://api.anthropic.com/v1"},"google":{"name":"Google Gemini","kind":"cloud-api","base":"https://generativelanguage.googleapis.com/v1beta/openai"},"xai":{"name":"xAI / Grok","kind":"cloud-api","base":"https://api.x.ai/v1"},"deepseek":{"name":"DeepSeek","kind":"cloud-api","base":"https://api.deepseek.com/v1"},"mistral":{"name":"Mistral AI","kind":"cloud-api","base":"https://api.mistral.ai/v1"},"moonshot":{"name":"Moonshot / Kimi","kind":"cloud-api","base":"https://api.moonshot.ai/v1"}}
+PROVIDERS={"ollama":{"name":"Ollama","kind":"local","base":"http://127.0.0.1:11434"},"lmstudio":{"name":"LM Studio / Bionic","kind":"local","base":"http://127.0.0.1:1234/v1"},"jan":{"name":"Jan","kind":"local","base":"http://127.0.0.1:1337/v1"},"openrouter":{"name":"OpenRouter · ZDR","kind":"cloud-zdr","base":"https://openrouter.ai/api/v1"},"venice":{"name":"Venice AI","kind":"cloud-private","base":"https://api.venice.ai/api/v1"},"openai":{"name":"OpenAI","kind":"cloud-api","base":"https://api.openai.com/v1"},"anthropic":{"name":"Anthropic / Claude","kind":"cloud-api","base":"https://api.anthropic.com/v1"},"google":{"name":"Google Gemini","kind":"cloud-api","base":"https://generativelanguage.googleapis.com/v1beta/openai"},"xai":{"name":"xAI / Grok","kind":"cloud-api","base":"https://api.x.ai/v1"},"deepseek":{"name":"DeepSeek","kind":"cloud-api","base":"https://api.deepseek.com/v1"},"mistral":{"name":"Mistral AI","kind":"cloud-api","base":"https://api.mistral.ai/v1"},"moonshot":{"name":"Moonshot / Kimi","kind":"cloud-api","base":"https://api.moonshot.ai/v1"}}
 @app.get("/",response_class=HTMLResponse)
 async def home():return HTMLResponse((Path(__file__).parent/"web"/"index.html").read_text())
 @app.get("/providers",response_class=HTMLResponse)
 async def providers():return HTMLResponse((Path(__file__).parent/"web"/"providers.html").read_text())
+@app.get("/web/persistence.js",response_class=PlainTextResponse)
+async def persistence():return PlainTextResponse((Path(__file__).parent/"web"/"persistence.js").read_text(encoding="utf-8"),media_type="text/javascript")
 @app.get("/system")
 async def system():return {"service":"SS Second Brain","version":"0.8.2","status":"online","provider_count":len(PROVIDERS),"chat_persistence":{"local":str(data_root()),"cloud":str(cloud_root()) if cloud_root() else None,"deletion_policy":"NEVER"}}
 @app.get("/api/providers")
@@ -56,17 +54,14 @@ async def models(b:dict):
     if p['kind'].startswith('cloud') and not key:return JSONResponse({'ok':False,'error':'API key required'},400)
     try:
         h={'Authorization':f'Bearer {key}'} if key else {};t=time.perf_counter()
-        if pid=='ollama':
-            d=await req(base+'/api/tags',headers=h);ms=[{'id':x['name'],'size':x.get('size'),'parameter_size':x.get('details',{}).get('parameter_size','')} for x in d.get('models',[])]
+        if pid=='ollama':d=await req(base+'/api/tags',headers=h);ms=[{'id':x['name'],'size':x.get('size'),'parameter_size':x.get('details',{}).get('parameter_size','')} for x in d.get('models',[])]
         elif pid=='anthropic':ms=[{'id':x,'owner':'Anthropic'} for x in ['claude-sonnet-4-5','claude-opus-4-1','claude-haiku-4-5']]
-        else:
-            d=await req(base+'/models',headers=h);ms=[{'id':x['id'],'owner':x.get('owned_by','')} for x in d.get('data',[])]
+        else:d=await req(base+'/models',headers=h);ms=[{'id':x['id'],'owner':x.get('owned_by','')} for x in d.get('data',[])]
         return {'ok':True,'models':ms,'latency_ms':round((time.perf_counter()-t)*1000)}
     except Exception as e:return JSONResponse({'ok':False,'error':boundary(pid,e)},502)
 @app.post('/api/health/provider')
 async def health(b:dict):
-    d=await models(b)
-    return d if isinstance(d,JSONResponse) else {'ok':True,'provider':b.get('provider'),'status':'READY','model_count':len(d['models']),'latency_ms':d['latency_ms']}
+    d=await models(b);return d if isinstance(d,JSONResponse) else {'ok':True,'provider':b.get('provider'),'status':'READY','model_count':len(d['models']),'latency_ms':d['latency_ms']}
 @app.post('/api/route')
 async def route(b:dict):
     t=(b.get('task') or '').lower();c=list(PROVIDERS)
