@@ -21,7 +21,7 @@ SS is a local-first intelligent orchestration layer. It chooses a suitable model
 
 Run `run-SS.bat`. It pulls the current fast-forward GitHub build, creates/updates `.venv`, installs requirements, and starts **127.0.0.1:8765**. The integrated workspace is at **127.0.0.1:8765/workspace**.
 
-`ss_server.py` wraps the existing application and adds the workspace before Uvicorn starts. FastAPI/Uvicorn supports this normal import-string application pattern. citeturn2search2turn2search7
+`ss_server.py` wraps the existing application and adds the workspace before Uvicorn starts.
 
 ## Data safety
 
