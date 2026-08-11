@@ -1,41 +1,34 @@
-# SS — Second Brain v0.8.4
+# SS — Second Brain v0.9.0
 
 **Single application entry point:** `http://127.0.0.1:8765/`
 
-SS is a local-first intelligent orchestration layer. It selects among local models, privacy-oriented gateways and frontier/reasoning providers according to task capability, privacy and available compute. It is not locked to Ollama or Venice.
+SS is a local-first intelligent orchestration layer. It chooses a suitable model under privacy, capability, cost and available-compute constraints rather than being locked to one provider.
 
-## What is live in v0.8.4
+## 0.9.0 LEAP
 
-- Real Second Brain chat UI at `/`.
-- Provider console at `/console` and `/providers`.
-- Permanent external chat archive with chat list and reload.
-- No automatic chat deletion/pruning/cleanup.
-- Optional cloud mirror via `SS_CHAT_CLOUD_ROOT`.
-- OS credential-store integration through `keyring`; keys are not committed to GitHub.
-- Explicit per-request approval before a cloud chat can be sent.
-- OpenRouter ZDR + `data_collection: deny` request mode.
-- Resource telemetry: RAM, CPU and swap.
-- Routing policy scaffolding for privacy, research, coding and complex reasoning.
-- Local backends: Ollama, LM Studio/Bionic, Jan.
-- Cloud/gateway backends: OpenRouter, Hugging Face Inference, Venice, OpenAI, Anthropic, Gemini, xAI, DeepSeek, Mistral, Moonshot/Kimi, Z.ai/GLM, Qwen/Alibaba Model Studio, Perplexity.
-- Separate connector layer: Brave Search API, Higgsfield MCP, DuckDuckGo browser search, Tor transport/browser, HuggingChat web UI and Meta AI web UI.
+- Permanent Second Brain chat archive outside the Git repository; no automatic deletion/pruning.
+- Explicit approval before cloud chat turns; no silent provider substitution.
+- Resource-aware routing that considers available RAM before preferring a local model.
+- FREE and PAID/OTHER model lists, alphabetically sorted by provider UI.
+- Local engines: Ollama, LM Studio/Bionic, Jan.
+- Cloud/gateway providers: OpenRouter, Hugging Face Inference, Venice, OpenAI, Anthropic, Gemini, xAI, DeepSeek, Mistral, Moonshot/Kimi, Z.ai/GLM, Qwen/Alibaba Model Studio, Perplexity.
+- Connector layer: Brave Search API, Higgsfield MCP, DuckDuckGo, Tor, HuggingChat and Meta AI.
+- **Integrated read-only File / Legal Workspace:** recursive folder inventory, metadata-preserving document extraction (PDF/DOCX/XLSX/text), multi-source context assembly and evidence-oriented analysis through SS.
+- **Duplicate-photo intelligence:** exact SHA-256 duplicate detection, oldest-creation-date canonical proposal and recoverable-space calculation. No deletion, rename, move or overwrite is performed.
+- All workspace actions default to read-only. Original paths, timestamps and metadata are retained.
 
-## Important distinction
+## Use
 
-A provider being listed does not mean that its private credential or local server is magically available. SS performs real endpoint/model discovery and reports the actual boundary. It does not invent APIs. For services that currently expose browser/MCP access rather than a normal public API, SS presents the real connector instead.
+Run `run-SS.bat`. It pulls the current fast-forward GitHub build, creates/updates `.venv`, installs requirements, and starts **127.0.0.1:8765**. The integrated workspace is at **127.0.0.1:8765/workspace**.
 
-## Windows
-
-Run `run-SS.bat`. It creates/uses `.venv`, installs the requirements and opens **127.0.0.1:8765**. A GitHub update changes source code only; the already-running Windows process must be restarted after pulling the repository.
+`ss_server.py` wraps the existing application and adds the workspace before Uvicorn starts. FastAPI/Uvicorn supports this normal import-string application pattern. citeturn2search2turn2search7
 
 ## Data safety
 
-Application source is versioned in GitHub. User chats are not stored in the repository. They live under the SS application-data directory outside the code. This separation is deliberate: updating or replacing application code must not overwrite conversation archives.
+Application source is versioned in GitHub. User chats are outside the repository under the SS application-data directory. Updates do not reset, prune or overwrite that archive. The workspace is read-only by design.
 
-The previous 8766 provider-console prototype was inspected and found to keep chat messages only in JavaScript memory. That was a real persistence defect. v0.8.4 fixes the architecture by persisting successful chats outside the repository.
+The old 8766 provider-console prototype had an in-memory chat persistence defect. Do not delete its browser/application data until the recovery procedure in `docs/RECOVER-8766-CHAT.md` has been attempted.
 
-**Do not delete or clear the old 8766 application/browser data until the recovery procedure in `docs/RECOVER-8766-CHAT.md` has been attempted.**
+## Important boundary
 
-## Development state
-
-`docs/SS_PROJECT_STATE.md` is the compact persistent specification recovered from the supplied Second Brain development material. Future SS development should update that state rather than relying on one ChatGPT conversation to remember another conversation.
+A provider being listed does not mean its private credential or local server is magically available. SS reports actual endpoint/credential boundaries. It does not invent APIs. Cloud requests remain gated by explicit approval.
