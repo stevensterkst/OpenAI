@@ -2,7 +2,7 @@
 
 Additive only: it does not delete, rename, move or overwrite user data.
 """
-from fastapi import JSONResponse
+from fastapi.responses import JSONResponse
 from app import PROVIDERS, key_for, models as core_models, chat as core_chat, route as core_route, pick_model
 
 IDENTITY_RULES = (
@@ -67,7 +67,6 @@ async def health_all(include_cloud=False):
 
 async def auto_safe(body):
     task=body.get("task","");messages=body.get("messages") or [{"role":"user","content":task}]
-    # Identity questions are answered from SS route metadata, never guessed by an LLM.
     if _identity_request(messages):
         r=await core_route({"task":task});cands=r.get("candidates",[])
         approved=bool(body.get("cloud_approved"));cands=[p for p in cands if approved or PROVIDERS[p]["kind"]=="local"]
