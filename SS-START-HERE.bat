@@ -1,39 +1,55 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-title SS SECOND BRAIN - PERMANENT START
+title SS SECOND BRAIN - PERMANENT START v0.8.4
 set "ROOT=%~dp0"
-
 echo ============================================================
-echo   SS SECOND BRAIN - PERMANENT START
- echo   v0.8.5 LEAP
+echo   SS SECOND BRAIN v0.8.4 - PERMANENT START
+ echo   GitHub -> local checkout -> 8765
+ echo   No delete / reset / overwrite of existing folders
  echo ============================================================
 echo.
 
-rem Prefer an existing working checkout. Never delete or overwrite a folder.
-if exist "%ROOT%.git\config" (cd /d "%ROOT%" & call run-SS.bat & exit /b %errorlevel%)
-if exist "%ROOT%run-SS.bat" (call "%ROOT%run-SS.bat" & exit /b %errorlevel%)
-if exist "%ROOT%SS-GitHub\run-SS.bat" (cd /d "%ROOT%SS-GitHub" & call run-SS.bat & exit /b %errorlevel%)
-if exist "%ROOT%checkout\run-SS.bat" (cd /d "%ROOT%checkout" & call run-SS.bat & exit /b %errorlevel%)
+rem If this BAT is already inside a Git checkout, use it.
+if exist "%ROOT%.git\" if exist "%ROOT%run-SS.bat" (
+  cd /d "%ROOT%"
+  call run-SS.bat
+  exit /b %errorlevel%
+)
+
+rem Prefer an existing working checkout.
+if exist "%ROOT%checkout\.git\" if exist "%ROOT%checkout\run-SS.bat" (
+  cd /d "%ROOT%checkout"
+  call run-SS.bat
+  exit /b %errorlevel%
+)
+if exist "%ROOT%SS-GitHub\.git\" if exist "%ROOT%SS-GitHub\run-SS.bat" (
+  cd /d "%ROOT%SS-GitHub"
+  call run-SS.bat
+  exit /b %errorlevel%
+)
 
 where git >nul 2>nul
 if errorlevel 1 (
-  echo Git is missing. Install Git for Windows once, then run this file again.
+  echo Git for Windows is required.
   start "" "https://git-scm.com/download/win"
   pause
   exit /b 1
 )
 
-if exist "%ROOT%SS-GitHub\" (
-  echo SS-GitHub exists but has no run-SS.bat.
-  echo It will NOT be deleted or overwritten.
-  echo Please keep it intact; this launcher will not touch it.
-  pause
-  exit /b 2
-)
+rem Never clone into a non-empty existing directory.
+set "TARGET=%ROOT%SS-GitHub"
+if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new"
+if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new2"
+if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new3"
 
-echo Creating a clean GitHub checkout in: %ROOT%SS-GitHub
-git clone https://github.com/stevensterkst/OpenAI.git "%ROOT%SS-GitHub"
-if errorlevel 1 (echo Clone failed. No existing folder was overwritten.&pause&exit /b 1)
-cd /d "%ROOT%SS-GitHub"
+echo Cloning current GitHub build into:
+echo %TARGET%
+git clone https://github.com/stevensterkst/OpenAI.git "%TARGET%"
+if errorlevel 1 (
+  echo Clone failed. No existing folder was deleted or overwritten.
+  pause
+  exit /b 1
+)
+cd /d "%TARGET%"
 call run-SS.bat
-endlocal
+exit /b %errorlevel%
