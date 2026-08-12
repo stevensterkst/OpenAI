@@ -13,6 +13,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --no-cache-dir -r requirements.txt
-      - run: python -m compileall -q ss_brain_084.py
-      - name: Brain import and route smoke test
-        run: python -c "from ss_brain_084 import APP, VERSION; routes={r.path for r in APP.routes}; required={'/','/console','/workspace','/system','/api/providers','/api/models/{pid}','/api/chat','/api/auto-chat','/api/files/scan','/api/files/search','/api/files/duplicates'}; missing=required-routes; assert VERSION == '0.8.4'; assert not missing, missing; print('SS v0.8.4 brain route smoke test OK')"
+      - run: python -m compileall -q app.py
+      - name: 0.8.4 Brain import and route smoke test
+        run: python -c "from app import APP, VERSION; routes={r.path for r in APP.routes}; required={'/','/console','/system','/api/providers','/api/resources','/api/storage','/api/chats','/api/models','/api/chat','/api/auto-chat','/api/route'}; missing=required-routes; assert VERSION == '0.8.4'; assert not missing, missing; print('SS v0.8.4 restored Brain route smoke test OK')"
