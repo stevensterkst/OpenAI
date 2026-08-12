@@ -8,7 +8,6 @@ set "DATA=%ROOT%\data"
 set "BACKUPS=%ROOT%\backups"
 set "ZIP=%TEMP%\SS-v%VER%.zip"
 set "EXTRACT=%TEMP%\SS-v%VER%-extract"
-
 echo ============================================================
 echo SS SECOND BRAIN v%VER% - SAFE INSTALL / START
 echo User data is outside the release directory and is preserved.
@@ -18,10 +17,8 @@ if not exist "%BACKUPS%" mkdir "%BACKUPS%"
 set "BACKUP=%BACKUPS%\before-v%VER%-%DATE:/=-%_%TIME::=-%"
 robocopy "%DATA%" "%BACKUP%" /E /COPY:DAT /R:1 /W:1 >nul
 if errorlevel 8 (echo DATA BACKUP FAILED - NOTHING UPDATED.&pause&exit /b 2)
-
 netstat -ano | findstr /R /C:":8765 .*LISTENING" >nul
 if not errorlevel 1 (echo PORT 8765 IS ALREADY IN USE. Nothing is killed or overwritten.&echo Close the existing SS server only if you intentionally want to replace it.&pause&exit /b 9)
-
 echo Downloading current GitHub v%VER% code...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue';Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/stevensterkst/OpenAI/archive/refs/heads/main.zip' -OutFile '%ZIP%'"
 if errorlevel 1 (echo GitHub download failed.&pause&exit /b 3)
@@ -41,5 +38,5 @@ if errorlevel 1 (echo Could not create Python environment.&pause&exit /b 7)
 if errorlevel 1 (echo Dependency installation failed.&pause&exit /b 8)
 start "SS Second Brain v%VER%" http://127.0.0.1:8765/
 cd /d "%APP%"
-"%APP%\.venv\Scripts\python.exe" -m uvicorn app_integrated:APP --host 127.0.0.1 --port 8765
+"%APP%\.venv\Scripts\python.exe" -m uvicorn ss_entry:APP --host 127.0.0.1 --port 8765
 pause
