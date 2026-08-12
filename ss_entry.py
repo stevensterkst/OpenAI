@@ -1,11 +1,17 @@
 """Canonical SS v0.8.4 entry point for 8765.
 
-Loads the integrated Brain and explicitly mounts the read-only workspace
-handlers. Explicit registration is intentional: it makes the canonical
-composition testable and prevents an accidental launch of a retired server.
+Loads the integrated Brain, installs the conservative resource-aware routing
+policy, and explicitly mounts the read-only workspace handlers. This is the
+only supported 8765 application composition entry.
 """
-from app_integrated import APP
+import app_integrated as brain
 from workspace_min import workspace, scan, extract_route, duplicates, context
+from ss_policy import install_policy
+
+# Install routing policy before the application is served so both the HTTP
+# endpoints and app_integrated.auto_chat use the same deterministic policy.
+install_policy(brain)
+APP = brain.APP
 
 _existing = {getattr(r, "path", "") for r in APP.routes}
 _routes = [
