@@ -14,8 +14,6 @@ from fastapi.responses import JSONResponse
 install_policy(brain)
 APP = brain.APP
 
-# Local coding agents are explicit/manual providers in the same chat console.
-# They are deliberately excluded from automatic provider routing.
 for _aid, _cfg in AGENTS.items():
     brain.PROVIDERS.setdefault(_aid, {
         "name": _cfg["name"], "kind": "local_agent", "base": "local://agent",
@@ -32,10 +30,7 @@ async def _models_impl(body):
         if not s.get("installed"):
             return {"ok": False, "error": f"{AGENTS[pid]['name']} is not installed/on PATH."}
         models = {
-            "claude_code": [
-                {"id": "sonnet", "detail": "Claude Code alias"},
-                {"id": "opus", "detail": "Claude Code alias"},
-            ],
+            "claude_code": [{"id": "sonnet", "detail": "Claude Code alias"}, {"id": "opus", "detail": "Claude Code alias"}],
             "codex_cli": [{"id": "default", "detail": "Codex CLI configured model"}],
             "gemini_cli": [{"id": "default", "detail": "Gemini CLI configured model"}],
         }[pid]
@@ -49,8 +44,9 @@ async def _chat_provider(pid, model, messages, system_extra=""):
         return result["text"], 0
     return await _original_chat_provider(pid, model, messages, system_extra)
 
-brain.models_impl = _models_impl
-brain.chat_provider = _chat_provider
+# app_integrated route handlers resolve these names in their module globals.
+brain.__dict__["models_impl"] = _models_impl
+brain.__dict__["chat_provider"] = _chat_provider
 
 @APP.get("/api/agents")
 async def agents():
@@ -62,13 +58,8 @@ async def agents_run(body: dict):
     aid = body.get("agent")
     if aid not in AGENTS:
         return JSONResponse({"ok": False, "error": "Unknown agent"}, 400)
-    # Explicit agent selection in the console is the approval boundary. SS does
-    # not accept a request to bypass the agent's own permission system.
     try:
-        result = await asyncio.to_thread(
-            run_agent, aid, str(body.get("prompt", "")),
-            body.get("model"), body.get("cwd"), body.get("timeout", 600)
-        )
+        result = await asyncio.to_thread(run_agent, aid, str(body.get("prompt", "")), body.get("model"), body.get("cwd"), body.get("timeout", 600))
         return result
     except Exception as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, 502)
