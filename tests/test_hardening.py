@@ -16,6 +16,8 @@ def test_identity_is_deterministic_and_does_not_call_model():
 
 def test_no_destructive_workspace_routes():
     paths={getattr(x,'path','') for x in APP.routes}
-    assert '/api/workspace/scan' in paths
-    assert '/api/workspace/duplicates' in paths
+    assert '/api/workspace/scan' in paths and '/api/workspace/duplicates' in paths
     assert not any(p in paths for p in ('/api/workspace/delete','/api/workspace/move','/api/workspace/rename','/api/workspace/overwrite'))
+
+if __name__=='__main__':
+    test_release_stays_084();test_model_get_compatibility_route_exists();test_identity_is_deterministic_and_does_not_call_model();test_no_destructive_workspace_routes();print('SS hardening regression tests: PASS')
