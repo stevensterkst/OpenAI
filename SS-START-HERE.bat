@@ -1,19 +1,11 @@
 @echo off
 setlocal EnableExtensions
-set "TARGET=%~dp0"
-if exist "%TARGET%.git" goto RUN
-if exist "%USERPROFILE%\SS-Second-Brain\.git" (set "TARGET=%USERPROFILE%\SS-Second-Brain"&goto RUN)
-if exist "%USERPROFILE%\SS\.git" (set "TARGET=%USERPROFILE%\SS"&goto RUN)
-where git >nul 2>nul
-if errorlevel 1 (
-  where winget >nul 2>nul || (echo Git and winget are unavailable. Install Git for Windows once, then run this again.&start "" "https://git-scm.com/download/win"&pause&exit /b 1)
-  winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements
-  set "PATH=%ProgramFiles%\Git\cmd;%PATH%"
-)
-if not exist "%USERPROFILE%\SS-Second-Brain\.git" git clone https://github.com/stevensterkst/OpenAI.git "%USERPROFILE%\SS-Second-Brain"
-if errorlevel 1 (echo Git clone failed.&pause&exit /b 1)
-set "TARGET=%USERPROFILE%\SS-Second-Brain"
-:RUN
-cd /d "%TARGET%"
-call run-SS.bat
+set "ROOT=%~dp0"
+if exist "%ROOT%.git\config" (cd /d "%ROOT%" & call run-SS.bat & exit /b %errorlevel%)
+if exist "%ROOT%run-SS.bat" (call "%ROOT%run-SS.bat" & exit /b %errorlevel%)
+echo SS START HERE: this folder is not itself a Git checkout.
+echo The permanent run-SS.bat is the correct launcher inside the checkout.
+echo No existing folder will be deleted or overwritten.
+start "" "https://github.com/stevensterkst/OpenAI"
+pause
 endlocal
