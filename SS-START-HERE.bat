@@ -1,34 +1,18 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-title SS SECOND BRAIN - PERMANENT START v0.8.4
-set "ROOT=%~dp0"
+title SS Second Brain v0.8.4 - Permanent Safe Launcher
+set "REPO=https://github.com/stevensterkst/OpenAI.git"
+set "APPDIR=%~dp0"
+set "PORT=8765"
+
 echo ============================================================
-echo   SS SECOND BRAIN v0.8.4 - PERMANENT START
- echo   GitHub -> local checkout -> 8765
- echo   No delete / reset / overwrite of existing folders
- echo ============================================================
-echo.
+echo   SS SECOND BRAIN v0.8.4 - PERMANENT SAFE LAUNCHER
+echo ============================================================
+echo   GitHub is the code source; SS user data is separate.
+echo   This launcher NEVER resets/deletes SS chats or data.
+echo ============================================================
 
-rem If this BAT is already inside a Git checkout, use it.
-if exist "%ROOT%.git\" if exist "%ROOT%run-SS.bat" (
-  cd /d "%ROOT%"
-  call run-SS.bat
-  exit /b %errorlevel%
-)
-
-rem Prefer an existing working checkout.
-if exist "%ROOT%checkout\.git\" if exist "%ROOT%checkout\run-SS.bat" (
-  cd /d "%ROOT%checkout"
-  call run-SS.bat
-  exit /b %errorlevel%
-)
-if exist "%ROOT%SS-GitHub\.git\" if exist "%ROOT%SS-GitHub\run-SS.bat" (
-  cd /d "%ROOT%SS-GitHub"
-  call run-SS.bat
-  exit /b %errorlevel%
-)
-
-where git >nul 2>nul
+where git >nul 2>&1
 if errorlevel 1 (
   echo Git for Windows is required.
   start "" "https://git-scm.com/download/win"
@@ -36,20 +20,48 @@ if errorlevel 1 (
   exit /b 1
 )
 
-rem Never clone into a non-empty existing directory.
-set "TARGET=%ROOT%SS-GitHub"
-if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new"
-if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new2"
-if exist "%TARGET%" set "TARGET=%ROOT%SS-GitHub-new3"
-
-echo Cloning current GitHub build into:
-echo %TARGET%
-git clone https://github.com/stevensterkst/OpenAI.git "%TARGET%"
-if errorlevel 1 (
-  echo Clone failed. No existing folder was deleted or overwritten.
-  pause
-  exit /b 1
+if not exist "%APPDIR%.git" (
+  if exist "%APPDIR%checkout\.git" set "APPDIR=%APPDIR%checkout\"
 )
-cd /d "%TARGET%"
-call run-SS.bat
-exit /b %errorlevel%
+if not exist "%APPDIR%.git" (
+  echo No Git checkout found. Creating a NEW checkout only; existing folders are untouched.
+  set "TARGET=%~dp0SS-GitHub"
+  if exist "!TARGET!" set "TARGET=%~dp0SS-GitHub-new"
+  if exist "!TARGET!" set "TARGET=%~dp0SS-GitHub-new2"
+  git clone "%REPO%" "!TARGET!"
+  if errorlevel 1 (echo Clone failed. Nothing was deleted.&pause&exit /b 1)
+  set "APPDIR=!TARGET!\"
+)
+
+pushd "%APPDIR%"
+git fetch origin
+if errorlevel 1 (echo Git fetch failed. Nothing was changed.&popd&pause&exit /b 1)
+git status --porcelain > "%TEMP%\ss_git_status.txt"
+for %%A in ("%TEMP%\ss_git_status.txt") do if %%~zA GTR 0 (
+  echo LOCAL CHANGES DETECTED - update stopped safely.
+  type "%TEMP%\ss_git_status.txt"
+  del "%TEMP%\ss_git_status.txt" >nul 2>&1
+  popd&pause&exit /b 2
+)
+del "%TEMP%\ss_git_status.txt" >nul 2>&1
+git pull --ff-only origin main
+if errorlevel 1 (echo GitHub update failed. No reset/merge was attempted.&popd&pause&exit /b 3)
+
+set "PY="
+if exist ".venv\Scripts\python.exe" set "PY=%CD%\.venv\Scripts\python.exe"
+if not defined PY (where py >nul 2>&1 && set "PY=py")
+if not defined PY (where python >nul 2>&1 && set "PY=python")
+if not defined PY (echo Python is missing. Opening official Python page.&start "" "https://www.python.org/downloads/windows/"&popd&pause&exit /b 4)
+if not exist ".venv\Scripts\python.exe" ("%PY%" -m venv .venv || (echo Could not create venv.&popd&pause&exit /b 5))
+set "PY=%CD%\.venv\Scripts\python.exe"
+"%PY%" -m pip install --no-cache-dir -r requirements.txt
+if errorlevel 1 (echo Dependency installation failed. Existing data was not touched.&popd&pause&exit /b 6)
+
+echo.
+echo Starting the INTEGRATED SS v0.8.4 Brain at http://127.0.0.1:%PORT%/
+start "SS Second Brain v0.8.4" http://127.0.0.1:%PORT%/
+"%PY%" -m uvicorn app_integrated:APP --host 127.0.0.1 --port %PORT%
+set "RC=%errorlevel%"
+popd
+pause
+exit /b %RC%
