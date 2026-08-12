@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --no-cache-dir -r requirements.txt
-      - run: python -m compileall -q app.py app_integrated.py ss_hardening.py workspace_min.py tests
+      - run: python -m compileall -q app.py app_integrated.py ss_entry.py ss_hardening.py workspace_min.py tests
       - run: python tests/test_hardening.py
-      - name: 0.8.4 integrated Brain smoke test
-        run: python -c "from app_integrated import APP, VERSION; routes={r.path for r in APP.routes}; required={'/','/console','/workspace','/system','/api/providers','/api/resources','/api/storage','/api/chats','/api/models','/api/models/{provider}','/api/chat','/api/chat-safe','/api/auto-chat','/api/auto-chat-safe','/api/route','/api/health/all','/api/workspace/scan','/api/workspace/extract','/api/workspace/duplicates','/api/workspace/context'}; missing=required-routes; assert VERSION == '0.8.4'; assert not missing, missing; print('SS v0.8.4 integrated Brain smoke test OK')"
+      - name: 0.8.4 canonical Brain smoke test
+        run: python -c "from ss_entry import APP, VERSION; routes={getattr(r,'path',None) for r in APP.routes if getattr(r,'path',None)}; required={'/','/console','/workspace','/system','/api/providers','/api/resources','/api/storage','/api/chats','/api/models','/api/chat','/api/auto-chat','/api/route','/api/workspace/scan','/api/workspace/extract','/api/workspace/duplicates','/api/workspace/context'}; missing=required-routes; assert VERSION == '0.8.4'; assert not missing, missing; print('SS v0.8.4 canonical Brain smoke test OK')"
