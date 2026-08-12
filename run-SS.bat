@@ -5,8 +5,8 @@ title SS SECOND BRAIN v0.8.4
 set "PORT=8765"
 echo ============================================================
 echo   SS SECOND BRAIN v0.8.4
- echo   GitHub -> local checkout -> 8765
- echo   No delete / reset / overwrite of existing folders
+echo   GitHub -> local checkout -> canonical 8765 entry
+echo   No delete / reset / overwrite of existing folders
  echo ============================================================
 echo.
 set "ROOT=%~dp0"
@@ -31,7 +31,7 @@ echo SS repository: %CD%
 echo Updating from GitHub (fast-forward only; NO reset/delete)...
 git pull --ff-only origin main
 if errorlevel 1 (echo Update stopped safely. Existing local files were not reset or deleted.&pause&exit /b 1)
-if not exist "app_integrated.py" (echo ERROR: app_integrated.py is missing from this checkout.&pause&exit /b 1)
+if not exist "ss_entry.py" (echo ERROR: canonical ss_entry.py is missing from this checkout.&pause&exit /b 1)
 set "PY="
 if exist "%CD%\.venv\Scripts\python.exe" ("%CD%\.venv\Scripts\python.exe" -c "import sys;print(sys.version)" >nul 2>nul & if not errorlevel 1 set "PY=%CD%\.venv\Scripts\python.exe")
 if not defined PY (py -c "import sys;print(sys.version)" >nul 2>nul & if not errorlevel 1 set "PY=py")
@@ -62,13 +62,32 @@ if errorlevel 1 (
  "%VENV%" -m pip install --no-cache-dir "fastapi>=0.115,<1" "uvicorn>=0.34,<1" "httpx>=0.27,<1" "keyring>=25,<26" "psutil>=6,<8"
  if errorlevel 1 (echo Runtime installation failed. No user files were deleted or reset.&pause&exit /b 1)
 )
+
 echo.
 echo Credential store: Windows keyring enabled.
-echo Starting SS Second Brain v0.8.4 at http://127.0.0.1:%PORT%/
-echo The browser opens the integrated Brain/Provider Console.
+echo Checking whether SS already owns port %PORT%...
+set "SSPID="
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'uvicorn.*ss_entry:APP.*--port 8765' -or $_.CommandLine -match 'uvicorn.*app_integrated:APP.*--port 8765' }; if($p){$p.ProcessId}"`) do set "SSPID=%%P"
+if defined SSPID (
+ echo Existing SS 8765 process found: PID !SSPID!
+ echo Stopping only the existing SS server process so the updated checkout can start.
+ taskkill /PID !SSPID! /T /F >nul 2>nul
+ timeout /t 1 /nobreak >nul
+)
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%PORT% .*LISTENING"') do set "OWNER=%%P"
+if defined OWNER (
+ echo ERROR: port %PORT% is still occupied by PID !OWNER! and it is not identified as SS.
+ echo SS will NOT terminate an unrelated process.
+ echo Close that application or free port %PORT%, then run this launcher again.
+ pause
+ exit /b 3
+)
+
+echo Starting canonical SS Second Brain v0.8.4 at http://127.0.0.1:%PORT%/
+echo Brain + Provider Console + Workspace are composed by ss_entry.py.
 echo Keep this window open while SS is running.
 start "SS Second Brain" http://127.0.0.1:%PORT%/
-"%VENV%" -m uvicorn app_integrated:APP --host 127.0.0.1 --port %PORT%
+"%VENV%" -m uvicorn ss_entry:APP --host 127.0.0.1 --port %PORT%
 set "RC=%errorlevel%"
 echo.
 echo SS stopped with exit code %RC%.
