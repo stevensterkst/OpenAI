@@ -55,16 +55,17 @@ if not exist "%CD%\.venv\Scripts\python.exe" (
 set "VENV=%CD%\.venv\Scripts\python.exe"
 "%VENV%" -c "import sys;print(sys.version)" >nul 2>nul
 if errorlevel 1 set "VENV=%PY%"
-"%VENV%" -c "import fastapi,uvicorn,httpx" >nul 2>nul
+"%VENV%" -c "import fastapi,uvicorn,httpx,keyring,psutil" >nul 2>nul
 if errorlevel 1 (
- echo Installing ONLY FastAPI, Uvicorn and HTTPX, without pip cache...
+ echo Installing the SS runtime dependencies without pip cache...
  "%VENV%" -m ensurepip --upgrade >nul 2>nul
- "%VENV%" -m pip install --no-cache-dir "fastapi>=0.115,<1" "uvicorn>=0.34,<1" "httpx>=0.27,<1"
- if errorlevel 1 (echo Minimal SS runtime installation failed. No user files were deleted or reset.&pause&exit /b 1)
+ "%VENV%" -m pip install --no-cache-dir "fastapi>=0.115,<1" "uvicorn>=0.34,<1" "httpx>=0.27,<1" "keyring>=25,<26" "psutil>=6,<8"
+ if errorlevel 1 (echo Runtime installation failed. No user files were deleted or reset.&pause&exit /b 1)
 )
-set "PYTHONUNBUFFERED=1"
 echo.
+echo Credential store: Windows keyring enabled.
 echo Starting SS Second Brain v0.8.4 at http://127.0.0.1:%PORT%/
+echo The browser opens the integrated Brain/Provider Console.
 echo Keep this window open while SS is running.
 start "SS Second Brain" http://127.0.0.1:%PORT%/
 "%VENV%" -m uvicorn app_integrated:APP --host 127.0.0.1 --port %PORT%
