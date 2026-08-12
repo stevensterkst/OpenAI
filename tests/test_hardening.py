@@ -26,7 +26,7 @@ def test_identity_is_deterministic_and_does_not_call_model():
     d = r.json()
     assert d['provider'] == 'ollama'
     assert d['model'] == 'phi4-mini:3.8b'
-    assert d['provenance']['provider'] == 'SS Local — Ollama'
+    assert d['provenance']['provider'] == 'Ollama'
     assert d['provenance']['model'] == 'phi4-mini:3.8b'
 
 def test_no_destructive_workspace_routes():
@@ -35,8 +35,4 @@ def test_no_destructive_workspace_routes():
     assert not any(p in paths for p in ('/api/workspace/delete', '/api/workspace/move', '/api/workspace/rename', '/api/workspace/overwrite'))
 
 if __name__ == '__main__':
-    test_release_stays_084()
-    test_model_get_compatibility_route_exists()
-    test_identity_is_deterministic_and_does_not_call_model()
-    test_no_destructive_workspace_routes()
-    print('SS hardening regression tests: PASS')
+    test_release_stays_084(); test_model_get_compatibility_route_exists(); test_identity_is_deterministic_and_does_not_call_model(); test_no_destructive_workspace_routes(); print('SS hardening regression tests: PASS')
