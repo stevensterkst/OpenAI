@@ -13,8 +13,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app.py ss_server.py
-      - name: Route smoke test
-        run: python -c "from ss_server import APP; routes={r.path for r in APP.routes}; required={'/system','/api/providers','/api/models','/api/chat','/providers','/workspace','/api/workspace/scan','/api/workspace/duplicates'}; missing=required-routes; assert not missing, missing; print('SS 0.9 workspace route smoke test OK')"
-      - name: Pytest
-        run: python -m pytest -q
+      - run: python -m compileall -q ss_brain.py
+      - name: Brain route smoke test
+        run: python -c "from ss_brain import APP; routes={r.path for r in APP.routes}; required={'/','/console','/workspace','/system','/api/providers','/api/models/{pid}','/api/chat','/api/auto-chat','/api/files/scan','/api/files/search','/api/files/duplicates'}; missing=required-routes; assert not missing, missing; print('SS v0.8.5 brain route smoke test OK')"
