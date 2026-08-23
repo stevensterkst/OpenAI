@@ -31,7 +31,6 @@ async def _models_impl(body):
             return {"ok": False, "error": f"{AGENTS[pid]['name']} is not installed/on PATH."}
         models = {
             "claude_code": [{"id": "sonnet", "detail": "Claude Code alias"}, {"id": "opus", "detail": "Claude Code alias"}],
-            "codex_cli": [{"id": "default", "detail": "Codex CLI configured model"}],
             "gemini_cli": [{"id": "default", "detail": "Gemini CLI configured model"}],
         }[pid]
         return {"ok": True, "models": models, "latency_ms": 0, "agent": s}
