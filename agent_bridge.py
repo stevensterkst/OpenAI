@@ -10,7 +10,6 @@ from typing import Dict
 
 AGENTS = {
     "claude_code": {"name": "Claude Code", "command": "claude", "mode": "print"},
-    "codex_cli": {"name": "OpenAI Codex CLI", "command": "codex", "mode": "exec"},
     "gemini_cli": {"name": "Gemini CLI", "command": "gemini", "mode": "print"},
 }
 
@@ -37,11 +36,6 @@ def run_agent(agent: str, prompt: str, model: str | None = None, cwd: str | None
         if model: args += ["--model", model]
     elif agent == "gemini_cli":
         args += ["-p", prompt]
-        if model: args += ["--model", model]
-    else:
-        # Codex CLI syntax is deliberately kept conservative. No approval-bypass
-        # flag is ever injected by SS.
-        args += ["exec"]
         if model: args += ["--model", model]
     if agent != "gemini_cli":
         args += [prompt]
