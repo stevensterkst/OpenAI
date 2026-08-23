@@ -1,17 +1,26 @@
 """SS AnythingLLM adapter for v0.8.4 — documented API only.
 
-Consults official AnythingLLM API documentation.
-Implements SS → AnythingLLM → Ollama → configured model chain.
+Consults official AnythingLLM OpenAPI specification.
+Implements SS → AnythingLLM → configured provider/model chain.
 SS remains orchestrator/Brain; AnythingLLM is AI/knowledge substrate.
 
-Official AnythingLLM API reference:
-https://docs.anythingllm.com/api/overview
-
-Key endpoints verified as of 2026:
+OFFICIAL AnythingLLM API endpoints (verified against current spec):
 - GET /api/v1/system/status
 - GET /api/v1/workspaces
+- GET /api/v1/workspace/{slug}/settings
 - POST /api/v1/workspace/{slug}/chat
-- GET /api/v1/workspace/{slug}/chat/history
+
+CRITICAL: The workspace has a CONFIGURED provider and model.
+SS does NOT discover/invent models. SS queries the workspace config,
+then sends messages. AnythingLLM enforces the configured model.
+
+Response schema per official spec:
+  POST /api/v1/workspace/{slug}/chat returns:
+  {
+    "textResponse": "...",      ← Actual generated text
+    "close": false,
+    "error": null
+  }
 """
 import os
 import json
@@ -22,18 +31,17 @@ from pathlib import Path
 
 
 class AnythingLLMAdapter:
-    """Verified AnythingLLM integration using documented API only."""
+    """Verified AnythingLLM integration using official documented API only."""
 
     SERVICE = "SS-Second-Brain"
-    DEFAULT_BASE = "http://127.0.0.1:3001"  # Official default
+    DEFAULT_BASE = "http://127.0.0.1:3001"  # Official default port
 
     def __init__(self):
         self.base_url = None
         self.api_key = None
         self.workspace_slug = None
         self.workspace_name = None
-        self.ollama_status = None
-        self.model = None
+        self.workspace_config = None  # Store actual workspace settings
         self.last_error = None
 
     def discover_endpoint(self) -> Dict:
@@ -54,7 +62,7 @@ class AnythingLLMAdapter:
     async def ping(self) -> Dict:
         """Verify AnythingLLM is reachable (GET /api/v1/system/status).
         
-        Returns: {"ok": bool, "status": str, ...}
+        Returns: {"ok": bool, "status": str, "version": str, ...}
         """
         if not self.base_url:
             self.discover_endpoint()
@@ -75,7 +83,7 @@ class AnythingLLMAdapter:
                     "ok": False,
                     "status": "error",
                     "http_code": r.status_code,
-                    "response": r.text
+                    "response": r.text[:200]
                 }
         except httpx.ConnectError as e:
             self.last_error = f"Connection refused: {str(e)}"
@@ -93,7 +101,7 @@ class AnythingLLMAdapter:
         """List available workspaces (GET /api/v1/workspaces).
         
         Requires: API key (stored in keyring)
-        Returns: {"ok": bool, "workspaces": [...], ...}
+        Returns: {"ok": bool, "workspaces": [...], "count": int}
         """
         if not self.base_url:
             self.discover_endpoint()
@@ -109,7 +117,7 @@ class AnythingLLMAdapter:
             return {
                 "ok": False,
                 "error": "AnythingLLM API key not configured in OS credential store.",
-                "fix": "Save with: keyring.set_password('SS-Second-Brain', 'anythingllm', '<key>')"
+                "fix": "Set with: keyring.set_password('SS-Second-Brain', 'anythingllm', '<api-key>')"
             }
 
         try:
@@ -159,7 +167,7 @@ class AnythingLLMAdapter:
         if not selected:
             return {
                 "ok": False,
-                "error": f"Workspace '{slug or name}' not found",
+                "error": f"Workspace not found",
                 "available": [ws.get("slug") or ws.get("name") for ws in workspaces]
             }
 
@@ -167,10 +175,13 @@ class AnythingLLMAdapter:
         self.workspace_name = selected.get("name")
         return {"ok": True, "workspace": selected}
 
-    async def workspace_settings(self) -> Dict:
-        """Get workspace settings including LLM configuration.
+    async def workspace_config(self) -> Dict:
+        """Get workspace configuration including LLM provider and model.
         
-        Returns: {"ok": bool, "settings": {...}, "ollama_configured": bool, ...}
+        AnythingLLM workspace has a CONFIGURED chatProvider and chatModel.
+        SS reports these; does NOT invent or override them.
+        
+        Returns: {"ok": bool, "llm_provider": str, "llm_model": str, ...}
         """
         if not self.workspace_slug:
             return {"ok": False, "error": "Workspace not selected"}
@@ -184,45 +195,52 @@ class AnythingLLMAdapter:
                 )
                 if r.status_code == 200:
                     data = r.json()
-                    settings = data.get("settings", {})
-                    llm_config = settings.get("llmProvider", {})
+                    # Store actual workspace configuration
+                    self.workspace_config = data
                     
-                    # Check if Ollama is configured
-                    ollama_configured = (
-                        llm_config.get("type") == "ollama" or
-                        "ollama" in str(llm_config).lower()
-                    )
+                    # Extract provider and model from workspace config
+                    # Per AnythingLLM spec, these are at workspace level
+                    provider = data.get("chatProvider") or data.get("llmProvider") or "unknown"
+                    model = data.get("chatModel") or data.get("llmModel") or "unknown"
                     
-                    self.ollama_status = ollama_configured
                     return {
                         "ok": True,
-                        "settings": settings,
-                        "llm_provider": llm_config.get("type"),
-                        "ollama_configured": ollama_configured,
-                        "raw_llm_config": llm_config
+                        "llm_provider": provider,
+                        "llm_model": model,
+                        "configured": True,
+                        "config": data
                     }
                 return {"ok": False, "http_code": r.status_code, "error": r.text[:200]}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    async def chat_inference(self, messages: List[Dict], model: str = None) -> Dict:
+    async def chat_inference(self, messages: List[Dict]) -> Dict:
         """Execute documented workspace chat (POST /api/v1/workspace/{slug}/chat).
+        
+        CRITICAL: Uses ACTUAL AnythingLLM response schema.
+        Per official spec, response contains 'textResponse', not 'response' or 'text'.
         
         Args:
             messages: List of {"role": "user"|"assistant", "content": str}
-            model: Model name (optional if workspace has default)
 
-        Returns: {"ok": bool, "text": str, "latency_ms": int, ...}
+        Returns: {"ok": bool, "text": str, "latency_ms": int, "model": str, ...}
         """
         if not self.workspace_slug:
             return {"ok": False, "error": "Workspace not selected"}
 
-        if not model:
-            model = self.model or "phi4-mini:3.8b"
+        # Extract user message (last user message in thread)
+        user_message = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_message = msg.get("content", "")
+                break
 
-        # Per AnythingLLM documented API, message format for POST /chat
+        if not user_message:
+            return {"ok": False, "error": "No user message in thread"}
+
+        # Payload per official AnythingLLM API spec
         payload = {
-            "message": messages[-1].get("content", "") if messages else "",
+            "message": user_message,
             "mode": "chat"
         }
 
@@ -240,21 +258,27 @@ class AnythingLLMAdapter:
 
                 if r.status_code == 200:
                     data = r.json()
-                    # AnythingLLM returns response in various formats
-                    text = (
-                        data.get("response")
-                        or data.get("text")
-                        or data.get("message")
-                        or ""
-                    )
+                    # OFFICIAL SCHEMA: textResponse is the generated text
+                    text = data.get("textResponse", "")
+                    error = data.get("error")
+
+                    if error:
+                        return {
+                            "ok": False,
+                            "error": f"AnythingLLM returned error: {error}",
+                            "latency_ms": latency_ms
+                        }
 
                     if not text:
                         return {
                             "ok": False,
-                            "error": "Empty response from AnythingLLM",
+                            "error": "Empty textResponse from AnythingLLM",
                             "latency_ms": latency_ms,
-                            "raw_response": data
+                            "raw_keys": list(data.keys())
                         }
+
+                    # Get configured model from workspace config
+                    model = (self.workspace_config or {}).get("chatModel") or "unknown"
 
                     return {
                         "ok": True,
@@ -262,8 +286,8 @@ class AnythingLLMAdapter:
                         "model": model,
                         "workspace": self.workspace_slug,
                         "latency_ms": latency_ms,
-                        "chain": "SS → AnythingLLM → Ollama → model → response",
-                        "raw_response_keys": list(data.keys())
+                        "chain": "SS → AnythingLLM → configured provider → configured model",
+                        "response_schema": "textResponse (official)"
                     }
                 return {
                     "ok": False,
@@ -275,9 +299,16 @@ class AnythingLLMAdapter:
             return {"ok": False, "error": str(e)}
 
     async def full_health_check(self) -> Dict:
-        """Complete end-to-end health check chain.
+        """Complete end-to-end health check.
         
-        Returns: {"ok": bool, "checks": {...}, "ready": bool, ...}
+        Verifies:
+        1. Endpoint reachability
+        2. API key validity
+        3. Workspace availability
+        4. Configured provider/model
+        5. ACTUAL inference with real response
+        
+        Returns: {"ok": bool, "ready": bool, "final_status": str, ...}
         """
         checks = {}
 
@@ -287,6 +318,7 @@ class AnythingLLMAdapter:
             return {
                 "ok": False,
                 "checks": checks,
+                "final_status": "BLOCKED",
                 "blocker": "AnythingLLM endpoint unreachable"
             }
 
@@ -297,33 +329,54 @@ class AnythingLLMAdapter:
             return {
                 "ok": False,
                 "checks": checks,
-                "blocker": f"Workspace issue: {ws_check.get('error')}"
+                "final_status": "BLOCKED",
+                "blocker": f"Workspace selection failed: {ws_check.get('error')}"
             }
 
-        # 3. Settings/Ollama config
-        settings_check = await self.workspace_settings()
-        checks["settings"] = settings_check
-        if not settings_check.get("ollama_configured"):
+        # 3. Get actual workspace config (provider/model)
+        config_check = await self.workspace_config()
+        checks["config"] = config_check
+        if not config_check.get("ok"):
             return {
                 "ok": False,
                 "checks": checks,
-                "blocker": "Ollama not configured in AnythingLLM workspace"
+                "final_status": "BLOCKED",
+                "blocker": f"Workspace config fetch failed: {config_check.get('error')}"
             }
 
-        # 4. Test inference
+        # 4. Test real inference
         test_messages = [{"role": "user", "content": "What is 2+2?"}]
         inference_check = await self.chat_inference(test_messages)
-        checks["inference_test"] = inference_check
+        checks["inference"] = inference_check
 
-        return {
-            "ok": inference_check.get("ok", False),
-            "checks": checks,
-            "ready": inference_check.get("ok", False),
-            "endpoint": self.base_url,
-            "workspace": self.workspace_name or self.workspace_slug,
-            "ollama_status": self.ollama_status,
-            "final_status": "READY" if inference_check.get("ok") else "BLOCKED"
-        }
+        if not inference_check.get("ok"):
+            return {
+                "ok": False,
+                "checks": checks,
+                "final_status": "BLOCKED",
+                "blocker": f"Real inference failed: {inference_check.get('error')}"
+            }
+
+        # If actual inference succeeded with real text
+        if inference_check.get("text") and len(inference_check.get("text", "")) > 0:
+            return {
+                "ok": True,
+                "checks": checks,
+                "ready": True,
+                "final_status": "READY",
+                "endpoint": self.base_url,
+                "workspace": self.workspace_name or self.workspace_slug,
+                "provider": config_check.get("llm_provider"),
+                "model": config_check.get("llm_model"),
+                "inference_latency_ms": inference_check.get("latency_ms")
+            }
+        else:
+            return {
+                "ok": False,
+                "checks": checks,
+                "final_status": "BLOCKED",
+                "blocker": "Inference produced no actual text"
+            }
 
 
 # Export for use in ss_entry.py
