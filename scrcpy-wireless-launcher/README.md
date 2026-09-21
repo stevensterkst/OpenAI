@@ -4,6 +4,20 @@ A small Windows launcher for **scrcpy + Android Wireless Debugging**.
 
 It is designed to replace fixed-IP/fixed-port launch scripts and vendor-specific phone connection utilities.
 
+## Quick workflow — the only things you normally need
+
+**FIRST TIME**
+1. Run `install-taskbar-shortcut.bat`.
+2. Pin **SCRCPY Wireless Phones** to the Windows taskbar.
+3. Use that taskbar icon to launch the phones.
+
+**EVERYDAY USE**
+- **Launch phones:** double-click the taskbar icon, or run `scrcpy-phones.bat`.
+- **Update the launcher:** double-click `update-launcher.bat`.
+- **Show this workflow in a terminal:** run `show-workflow.bat`.
+
+**Do not use the old launcher** if you still have one named **SCRCPY phones**. Unpin/remove that old shortcut so there is only one launcher.
+
 ## What it does
 
 - Uses ADB Wireless Debugging.
