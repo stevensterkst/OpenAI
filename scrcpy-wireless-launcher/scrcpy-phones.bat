@@ -4,7 +4,8 @@ title SCRCPY Wireless Phones
 
 rem ============================================================
 rem SCRCPY Wireless Phone Launcher
-rem Finds phones by Android model, preferring ADB TLS/mDNS.
+rem Finds phones by Android model, verifies each device again,
+rem then starts each scrcpy instance independently.
 rem ============================================================
 
 set "ROOT=%~dp0"
@@ -40,6 +41,18 @@ if not defined SCRCPY (
     exit /b 1
 )
 
+if not exist "%ROOT%find-phone.ps1" (
+    echo ERROR: find-phone.ps1 was not found.
+    pause
+    exit /b 1
+)
+
+if not exist "%ROOT%launch-phone.ps1" (
+    echo ERROR: launch-phone.ps1 was not found.
+    pause
+    exit /b 1
+)
+
 echo ADB   : "%ADB%"
 echo scrcpy: "%SCRCPY%"
 echo.
@@ -53,20 +66,29 @@ for /f "usebackq delims=" %%S in (`powershell.exe -NoProfile -ExecutionPolicy By
 
 for /f "usebackq delims=" %%S in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%find-phone.ps1" -AdbPath "%ADB%" -Model "moto g54 5G"`) do if not defined G54_SERIAL set "G54_SERIAL=%%S"
 
+echo.
+echo ---------------- DEVICE VERIFICATION ----------------
+
 if defined G85_SERIAL (
-    echo [OK] Moto G85: !G85_SERIAL!
-    start "" "%SCRCPY%" -s "!G85_SERIAL!" --window-title="Moto G85"
+    echo [FOUND] Moto G85 candidate: !G85_SERIAL!
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G85_SERIAL!" -Title "Moto G85"
+    if errorlevel 1 echo [ERROR] Moto G85 scrcpy launch failed.
 ) else (
     echo [--] Moto G85 not currently available.
 )
 
 if defined G54_SERIAL (
-    echo [OK] Moto G54: !G54_SERIAL!
-    start "" "%SCRCPY%" -s "!G54_SERIAL!" --window-title="Moto G54"
+    echo [FOUND] Moto G54 candidate: !G54_SERIAL!
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G54_SERIAL!" -Title "Moto G54"
+    if errorlevel 1 echo [ERROR] Moto G54 scrcpy launch failed.
 ) else (
     echo [--] Moto G54 not currently available.
 )
 
 echo.
-echo Launcher finished. The scrcpy windows remain open.
+echo ==========================================================
+echo Launcher finished. Check the verified model lines above.
+echo The scrcpy windows remain open independently.
+echo ==========================================================
+echo.
 exit /b 0
