@@ -26,7 +26,7 @@ $ranked = $candidates | Sort-Object @{
 
 foreach ($serial in $ranked) {
     $reportedModel = (& $AdbPath -s $serial shell getprop ro.product.model 2>$null | Out-String).Trim()
-    if ($reportedModel -eq $Model) {
+    if ($reportedModel -replace '_',' ' -eq ($Model -replace '_',' ')) {
         Write-Output $serial
         exit 0
     }
