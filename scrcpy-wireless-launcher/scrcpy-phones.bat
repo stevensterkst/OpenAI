@@ -55,14 +55,14 @@ for /f "usebackq delims=" %%S in (`powershell.exe -NoProfile -ExecutionPolicy By
 
 if defined G85_SERIAL (
     echo [OK] Moto G85: !G85_SERIAL!
-    start "Moto G85" "%SCRCPY%" -s "!G85_SERIAL!" --window-title="Moto G85"
+    start "" "%SCRCPY%" -s "!G85_SERIAL!" --window-title="Moto G85"
 ) else (
     echo [--] Moto G85 not currently available.
 )
 
 if defined G54_SERIAL (
     echo [OK] Moto G54: !G54_SERIAL!
-    start "Moto G54" "%SCRCPY%" -s "!G54_SERIAL!" --window-title="Moto G54"
+    start "" "%SCRCPY%" -s "!G54_SERIAL!" --window-title="Moto G54"
 ) else (
     echo [--] Moto G54 not currently available.
 )
