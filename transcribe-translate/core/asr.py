@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -35,13 +34,13 @@ class LocalWhisperX:
         self.compute_type = compute_type
         self.progress = progress
 
-    def transcribe(self, audio: Path) -> Transcript:
+    def transcribe(self, audio_path: Path) -> Transcript:
         try:
+            import torch
             import whisperx
         except ImportError as exc:
             raise RuntimeError("WhisperX is not installed. Run setup.bat.") from exc
 
-        import torch
         device = self.device
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -50,30 +49,34 @@ class LocalWhisperX:
             compute = "float16" if device == "cuda" else "int8"
 
         self.progress(f"Local WhisperX: model={self.model}, device={device}, compute={compute}")
+        audio = whisperx.load_audio(str(audio_path))
         model = whisperx.load_model(self.model, device=device, compute_type=compute)
         language = None if self.language == "auto" else self.language
-        result = model.transcribe(str(audio), language=language, batch_size=4 if device == "cpu" else 16)
+        result = model.transcribe(audio, language=language, batch_size=4 if device == "cpu" else 16)
 
+        detected = result.get("language") or language
         segments = [
             Segment(float(s.get("start", 0)), float(s.get("end", 0)), str(s.get("text", "")).strip(), s.get("speaker"))
             for s in result.get("segments", []) if str(s.get("text", "")).strip()
         ]
-        detected = result.get("language") or language
-        if self.diarize and segments:
+
+        if self.diarize:
+            token = os.getenv("HF_TOKEN", "").strip()
+            if not token:
+                raise RuntimeError("HF_TOKEN is required for local speaker diarization.")
             try:
-                from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-                token = os.getenv("HF_TOKEN", "").strip()
-                if not token:
-                    raise RuntimeError("HF_TOKEN is required for local speaker diarization.")
-                diarizer = DiarizationPipeline(token=token, device=device)
-                diarize_segments = diarizer(str(audio))
-                result = assign_word_speakers(diarize_segments, result)
-                segments = [
-                    Segment(float(s.get("start", 0)), float(s.get("end", 0)), str(s.get("text", "")).strip(), s.get("speaker"))
-                    for s in result.get("segments", []) if str(s.get("text", "")).strip()
-                ]
+                from whisperx.diarize import DiarizationPipeline
             except ImportError as exc:
                 raise RuntimeError("Installed WhisperX does not expose its diarization module.") from exc
+
+            self.progress("Running WhisperX speaker diarization...")
+            diarizer = DiarizationPipeline(token=token, device=device)
+            diarize_segments = diarizer(audio)
+            result = whisperx.assign_word_speakers(diarize_segments, result)
+            segments = [
+                Segment(float(s.get("start", 0)), float(s.get("end", 0)), str(s.get("text", "")).strip(), s.get("speaker"))
+                for s in result.get("segments", []) if str(s.get("text", "")).strip()
+            ]
 
         text = "\n".join((f"[{s.speaker}] {s.text}" if s.speaker else s.text) for s in segments)
         return Transcript(text=text, segments=segments, language=detected, backend="local-whisperx", model=self.model)
