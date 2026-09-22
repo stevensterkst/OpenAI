@@ -16,19 +16,37 @@ def _ts(seconds: float, comma: bool = True) -> str:
     sep = "," if comma else "."
     return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
 
-def write_outputs(transcript: Transcript, translation: str, source_summary: str,
-                  english_summary: str, directory: Path, source: str,
-                  translated: bool = False, target_language: str = "") -> None:
+def write_outputs(
+    transcript: Transcript,
+    translation: str,
+    source_summary: str,
+    english_summary: str,
+    analysis: str,
+    directory: Path,
+    source: str,
+    translated: bool = False,
+    target_language: str = "",
+    analysis_created: bool = False,
+) -> None:
     directory.mkdir(parents=True, exist_ok=True)
+
     (directory / "original.txt").write_text(transcript.text + "\n", encoding="utf-8")
     (directory / "source_summary.md").write_text(
         f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n",
         encoding="utf-8",
     )
     (directory / "english_summary.md").write_text(
-        f"# English summary (translation of source-language summary)\n\n{english_summary}\n",
+        "# English summary (translation of source-language summary)\n\n"
+        f"{english_summary}\n",
         encoding="utf-8",
     )
+
+    if analysis_created:
+        (directory / "analysis.md").write_text(
+            "# Source-grounded meeting / evidence analysis\n\n"
+            f"{analysis}\n",
+            encoding="utf-8",
+        )
 
     if translated:
         (directory / "translation.txt").write_text(
@@ -59,10 +77,12 @@ def write_outputs(transcript: Transcript, translation: str, source_summary: str,
     manifest = {
         "translation_created": translated,
         "translation_target": target_language if translated else None,
+        "analysis_created": analysis_created,
         "primary_outputs": [
             "original.txt", "original.json", "original.srt", "original.vtt",
             "source_summary.md", "english_summary.md"
         ],
+        "analysis_outputs": ["analysis.md"] if analysis_created else [],
     }
     (directory / "output_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
