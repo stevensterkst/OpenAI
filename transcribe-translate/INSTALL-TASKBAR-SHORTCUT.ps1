@@ -5,7 +5,7 @@ $dir = Join-Path $start "Programs\SS Transcribe-Translate"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 
 $launcher = Join-Path $root "START-APP.vbs"
-if(-not (Test-Path $launcher)){ throw "START-APP.cmd is missing: $launcher" }
+if(-not (Test-Path $launcher)){ throw "START-APP.vbs is missing: $launcher" }
 
 $shortcut = Join-Path $dir "SS Transcribe-Translate.lnk"
 $ws = New-Object -ComObject WScript.Shell
@@ -32,5 +32,5 @@ if(Test-Path $taskbarDir){
 Write-Host "Start shortcut ready:"
 Write-Host $shortcut
 Write-Host ""
-Write-Host "The single application launcher is START-APP.cmd."
+Write-Host "The single application launcher is START-APP.vbs."
 Write-Host "If Windows does not refresh the existing taskbar pin automatically, unpin the old Transcription icon and pin SS Transcribe-Translate from Start.";
