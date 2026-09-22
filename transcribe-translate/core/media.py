@@ -17,7 +17,14 @@ def find_ffmpeg() -> str:
     found = shutil.which("ffmpeg")
     if found:
         return found
-    raise RuntimeError("FFmpeg was not found on PATH. Your existing FFmpeg installation must be on PATH.")
+    for root in [os.environ.get("ProgramFiles", r"C:\Program Files")]:
+        for candidate in Path(root).glob("FFmpeg*/bin/ffmpeg.exe"):
+            if candidate.is_file():
+                return str(candidate)
+    raise RuntimeError(
+        "FFmpeg was not found on PATH or under C:\\Program Files\\FFmpeg*\\bin. "
+        "The application does not install or replace FFmpeg."
+    )
 
 def find_ytdlp(configured: str = "") -> str:
     candidates = []
@@ -61,7 +68,10 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
 def extract_audio(media: Path, destination: Path) -> Path:
     ffmpeg = find_ffmpeg()
     subprocess.run(
-        [ffmpeg, "-y", "-i", str(media), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(destination)],
+        [ffmpeg, "-y", "-i", str(media), "-vn", "-ac", "1", "-ar", "16000",
+         "-c:a", "pcm_s16le", str(destination)],
         check=True,
     )
+    if not destination.is_file() or destination.stat().st_size <= 44:
+        raise RuntimeError("FFmpeg produced no usable audio track.")
     return destination
