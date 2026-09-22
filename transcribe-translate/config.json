@@ -1,0 +1,16 @@
+{
+  "asr": {
+    "local_model": "small",
+    "language": "auto",
+    "compute_type": "int8"
+  },
+  "text": {
+    "ollama_url": "http://127.0.0.1:11434",
+    "ollama_model": "qwen3:1.7b",
+    "target_language": "en"
+  },
+  "paths": {
+    "output_dir": "output",
+    "ytdlp_path": ""
+  }
+}
