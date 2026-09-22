@@ -130,3 +130,38 @@ The application is intentionally source-first and local at runtime:
 - **Exports:** TXT, JSON, SRT, VTT, Markdown summaries/analysis and optional translation/Q&A.
 
 Features identified during competitor review but deliberately not treated as silently completed include watch-folder automation, a persistent searchable job library, synchronized media playback, and multi-file batch orchestration. Those require separate product work; the repository must not claim them as implemented merely because related concepts exist.
+
+## Final feature set
+
+The current application includes:
+
+- Windows GUI with local file and YouTube input.
+- faster-whisper/CTranslate2 local transcription with automatic source-language detection, word timestamps and vocabulary/hotwords.
+- Source-language transcript and source-language summary as the primary outputs.
+- English summary as a translation of the source summary.
+- Optional full transcript translation to a user-selected language.
+- Ollama model discovery and selection for every locally installed model.
+- Source-grounded analysis, exact transcript search, language-neutral top-term counts, and transcript-grounded Q&A.
+- Offline Sherpa-ONNX speaker diarization with local Pyannote segmentation and 3D-Speaker embeddings; no Torch, WhisperX or cloud diarization.
+- Batch-folder processing.
+- Hash-based watch-folder processing.
+- Persistent SQLite local library with transcript/summary search.
+- Synchronized HTML media player with timestamp navigation and active transcript highlighting.
+- TXT, Markdown, CSV, JSON, SRT and VTT transcript exports plus structured summaries, analysis, Q&A and manifests.
+- SHA-256 input provenance and timestamped job directories, so repeated transcriptions are retained as separate versions rather than overwritten.
+- Existing FFmpeg and existing yt-dlp are reused. YouTube also supports the already-installed Python yt-dlp package; yt-dlp[default] supplies the current EJS scripts and the setup installs local Deno for the required JavaScript runtime.
+- No paid OpenAI API calls from this application.
+
+### One-pass Windows setup
+
+Run:
+
+    powershell -ExecutionPolicy Bypass -File .\finish-local.ps1
+
+It installs the local Python dependencies, installs a local Deno runtime, downloads the official Sherpa-ONNX diarization models, configures them, builds the Windows GUI executable, opens a file picker for a real verification recording, runs all Ollama smoke tests, runs the real pipeline, and verifies the generated outputs.
+
+It never runs the obsolete Whisper/Torch cleanup unless -CleanupObsoleteWhisper is explicitly supplied.
+
+The packaged executable is produced at:
+
+    dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe
