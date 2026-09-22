@@ -4,13 +4,14 @@ $start = [Environment]::GetFolderPath("StartMenu")
 $dir = Join-Path $start "Programs\SS Transcribe-Translate"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 
-$launcher = Join-Path $root "START-APP.cmd"
+$launcher = Join-Path $root "START-APP.vbs"
 if(-not (Test-Path $launcher)){ throw "START-APP.cmd is missing: $launcher" }
 
 $shortcut = Join-Path $dir "SS Transcribe-Translate.lnk"
 $ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut($shortcut)
-$sc.TargetPath = $launcher
+$sc.TargetPath = "wscript.exe"
+$sc.Arguments = '"' + $launcher + '"'
 $sc.WorkingDirectory = $root
 $sc.Description = "SS Transcribe-Translate — single local application launcher"
 $sc.IconLocation = "$env:SystemRoot\System32\SHELL32.dll,167"
