@@ -70,10 +70,10 @@ class OllamaTextProvider:
         self.progress(f"Source-summary chunk {index}/{total} [{self.model}]")
         return self._call(
             f"Summarize this portion of a {source_language} transcript in {source_language}. "
-            "Keep every material fact, argument, proposal, decision, objection, question, name, "
-            "date, amount, condition, vote, action item, deadline, uncertainty and unresolved issue "
-            "that occurs in this portion. Do not invent or infer. This is an intermediate source-language "
-            "summary and will be consolidated later.\n\n" + chunk
+            "Keep every material fact, argument, proposal, decision, objection, question, name, date, "
+            "amount, condition, vote, action item, deadline, uncertainty and unresolved issue that occurs "
+            "in this portion. Do not invent or infer. This is an intermediate source-language summary and "
+            "will be consolidated later.\n\n" + chunk
         )
 
     def summarize_source(self, transcript: str, source_language: str) -> str:
@@ -86,11 +86,9 @@ class OllamaTextProvider:
                 "important arguments, decisions, proposals, objections, questions, named people or organisations, "
                 "dates, amounts, conditions, votes or voting positions when stated, action items, deadlines, "
                 "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
-                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n"
-                + transcript
+                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n" + transcript
             )
-        summaries = [self._source_chunk_summary(part, source_language, i, len(parts))
-                     for i, part in enumerate(parts, 1)]
+        summaries = [self._source_chunk_summary(part, source_language, i, len(parts)) for i, part in enumerate(parts, 1)]
         self.progress(f"Consolidating {len(summaries)} source-summary chunks [{self.model}]")
         return self._call(
             f"Consolidate these intermediate summaries into one comprehensive summary in {source_language}. "
@@ -127,11 +125,39 @@ Use only the supplied analyses. Do not invent or turn uncertainty into certainty
 {chr(10).join(analyses)}"""
         )
 
+    def ask_transcript(self, transcript_context: str, question: str, answer_language: str) -> str:
+        parts = chunk_text(transcript_context, size=9000)
+        evidence = []
+        for i, part in enumerate(parts, 1):
+            self.progress(f"Q&A evidence pass {i}/{len(parts)} [{self.model}]")
+            evidence.append(self._call(
+                f"""Answer the question using ONLY the supplied transcript excerpt.
+Return the relevant facts and timestamps/speaker labels present in the excerpt. If the excerpt does not
+contain enough evidence, say so. Do not infer missing facts.
+
+QUESTION:
+{question}
+
+TRANSCRIPT EXCERPT:
+{part}"""
+            ))
+        return self._call(
+            f"""Answer this transcript-grounded question in {answer_language}.
+Use ONLY the evidence passages below. Give a concise answer followed by supporting timestamps where available.
+Do not invent facts. If evidence conflicts or is insufficient, explicitly state that.
+Do not provide legal conclusions merely because the transcript mentions a legal issue.
+
+QUESTION:
+{question}
+
+EVIDENCE:
+{chr(10).join(evidence)}"""
+        )
+
     def translate(self, text: str, target_language: str, purpose: str = "transcript") -> str:
         outputs = []
-        parts = chunk_text(text)
-        for index, part in enumerate(parts, 1):
-            self.progress(f"Local {purpose} translation: part {index}/{len(parts)} -> {target_language} [{self.model}]")
+        for index, part in enumerate(chunk_text(text), 1):
+            self.progress(f"Local {purpose} translation: part {index} -> {target_language} [{self.model}]")
             outputs.append(self._call(
                 f"Translate this {purpose} faithfully into {target_language}. Do not summarize. Preserve names, "
                 "numbers, dates, legal/voting terminology, uncertainty, negation, speaker meaning and all "
