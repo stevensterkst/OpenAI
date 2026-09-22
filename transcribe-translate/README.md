@@ -95,11 +95,16 @@ Do **not** run the cleanup blindly: first run the read-only audit supplied in th
 
 Repository inspection verifies the architecture and source-first data flow.
 
-A real Windows end-to-end run is still required to verify:
-- actual transcription on your recordings
-- Ollama reachability and installed models
-- actual CPU speed/quality
-- FFmpeg and standalone yt-dlp discovery on this PC
-- actual generated output contents
+Verification status after the 2026-09-22 audit:
+- Architecture/source-code checks: implemented.
+- Ollama local endpoint and all four installed models: verified on this PC.
+- faster-whisper + CTranslate2 imports: verified on this PC.
+- Existing FFmpeg executable: verified on this PC.
+- A real end-to-end run was attempted, but the automatically selected 4.54-second browser-extension cache MP4 produced zero transcript segments; the old verifier incorrectly continued into Ollama stages and only failed when it found an empty SRT.
+- The verifier is now strict: it requires an explicit user-selected recording, treats zero ASR segments as a hard failure, and checks transcript text/segments before declaring success.
+- The ASR now retries once with VAD disabled when the normal VAD pass produces zero segments.
+- The application's FFmpeg discovery now also searches the existing C:\Program Files\FFmpeg* installation when FFmpeg is not on PATH.
+- Obsolete Whisper/Torch cleanup is no longer automatic in finish-local.ps1.
+- Speaker diarization remains optional and is NOT claimed as verified: sherpa-onnx and compatible local ONNX speaker models were not present in the audited PC state.
 
-No code inspection can honestly substitute for that real run.
+No code inspection can honestly substitute for the final real run on a genuine recording containing speech.
