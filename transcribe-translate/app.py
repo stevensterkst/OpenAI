@@ -12,14 +12,15 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("SS Transcribe-Translate — Free Local")
-        self.geometry("1080x760")
-        self.minsize(920, 680)
+        self.geometry("1120x820")
+        self.minsize(960, 720)
         self.source = tk.StringVar()
         self.language = tk.StringVar(value="auto")
         self.model = tk.StringVar(value="small")
         self.ollama_model = tk.StringVar()
         self.target = tk.StringVar(value="English")
         self.translate_transcript = tk.BooleanVar(value=False)
+        self.analysis = tk.BooleanVar(value=True)
         self.output = tk.StringVar(value=str(ROOT / "output"))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
@@ -29,8 +30,12 @@ class App(tk.Tk):
     def _build(self):
         root = ttk.Frame(self, padding=16)
         root.pack(fill="both", expand=True)
+
         ttk.Label(root, text="SS Transcribe-Translate", font=("Segoe UI", 18, "bold")).pack(anchor="w")
-        ttk.Label(root, text="PRIMARY: local source transcript + source-language summary. Optional translation via Ollama.").pack(anchor="w", pady=(0, 14))
+        ttk.Label(
+            root,
+            text="PRIMARY: local source transcript + source-language summary. English summary is only a translation. Full translation and analysis are optional.",
+        ).pack(anchor="w", pady=(0, 14))
 
         box = ttk.LabelFrame(root, text="Input", padding=10)
         box.pack(fill="x")
@@ -41,25 +46,40 @@ class App(tk.Tk):
 
         opts = ttk.LabelFrame(root, text="Processing", padding=10)
         opts.pack(fill="x", pady=10)
-        self.combo(opts, "Source language", self.language, ["auto", "ca", "es", "en", "fr", "de", "it"], 0, 0)
+
+        self.combo(opts, "Source language", self.language, ["auto", "ca", "es", "en", "fr", "de", "it", "nl", "pt", "pl"], 0, 0)
         self.combo(opts, "Whisper model", self.model, ["tiny", "base", "small", "medium", "large-v3"], 1, 0)
 
         ttk.Label(opts, text="Ollama model").grid(row=0, column=2, sticky="w", padx=(28, 8))
-        self.ollama_combo = ttk.Combobox(opts, textvariable=self.ollama_model, state="readonly", width=30)
+        self.ollama_combo = ttk.Combobox(opts, textvariable=self.ollama_model, state="readonly", width=32)
         self.ollama_combo.grid(row=0, column=3, sticky="w")
         self.ollama_combo.bind("<<ComboboxSelected>>", lambda _e: self.update_advice())
         ttk.Button(opts, text="Refresh models", command=self.refresh_ollama).grid(row=0, column=4, padx=8)
 
         ttk.Label(opts, text="Recommendation").grid(row=1, column=2, sticky="w", padx=(28, 8))
-        ttk.Label(opts, textvariable=self.advice, wraplength=520).grid(row=1, column=3, columnspan=2, sticky="w")
+        ttk.Label(opts, textvariable=self.advice, wraplength=600).grid(row=1, column=3, columnspan=2, sticky="w")
 
-        ttk.Checkbutton(opts, text="Also translate the FULL source transcript", variable=self.translate_transcript).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 3))
-        ttk.Label(opts, text="Target language").grid(row=2, column=2, sticky="w", padx=(28, 8))
-        ttk.Entry(opts, textvariable=self.target, width=30).grid(row=2, column=3, sticky="w")
-        ttk.Label(opts, text="Examples: English, Dutch, French, German, Catalan, Spanish, etc.").grid(row=2, column=4, sticky="w")
+        ttk.Checkbutton(
+            opts,
+            text="Run source-grounded meeting/evidence analysis",
+            variable=self.analysis,
+        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 3))
 
-        ttk.Label(opts, text="Cost").grid(row=3, column=2, sticky="w", padx=(28, 8))
-        ttk.Label(opts, text="$0 / €0 paid API — this application does not call OpenAI APIs").grid(row=3, column=3, columnspan=2, sticky="w")
+        ttk.Checkbutton(
+            opts,
+            text="Also translate the FULL source transcript",
+            variable=self.translate_transcript,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=3)
+
+        ttk.Label(opts, text="Target language").grid(row=3, column=2, sticky="w", padx=(28, 8))
+        ttk.Entry(opts, textvariable=self.target, width=32).grid(row=3, column=3, sticky="w")
+        ttk.Label(opts, text="Any language accepted by the selected Ollama model.").grid(row=3, column=4, sticky="w")
+
+        ttk.Label(opts, text="Cost").grid(row=4, column=2, sticky="w", padx=(28, 8))
+        ttk.Label(opts, text="$0 / €0 paid API — this application does not call OpenAI APIs").grid(row=4, column=3, columnspan=2, sticky="w")
+
+        ttk.Label(opts, text="Output").grid(row=5, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(opts, textvariable=self.output).grid(row=5, column=1, columnspan=4, sticky="ew", pady=(8, 0))
         opts.columnconfigure(3, weight=1)
 
         actions = ttk.Frame(root)
@@ -105,14 +125,23 @@ class App(tk.Tk):
     def browse(self):
         path = filedialog.askopenfilename(
             title="Choose media",
-            filetypes=[("Media", "*.mp4 *.mkv *.mov *.avi *.webm *.m4v *.mp3 *.m4a *.wav *.flac *.ogg"),
-                       ("All files", "*.*")]
+            filetypes=[
+                ("Media", "*.mp4 *.mkv *.mov *.avi *.webm *.m4v *.mp3 *.m4a *.wav *.flac *.ogg"),
+                ("All files", "*.*"),
+            ],
         )
         if path:
             self.source.set(path)
 
     def logmsg(self, msg):
-        self.after(0, lambda: (self.log.insert("end", msg + "\n"), self.log.see("end"), self.status.set(msg[:150])))
+        self.after(
+            0,
+            lambda: (
+                self.log.insert("end", msg + "\n"),
+                self.log.see("end"),
+                self.status.set(msg[:150]),
+            ),
+        )
 
     def start(self):
         source = self.source.get().strip()
@@ -123,12 +152,15 @@ class App(tk.Tk):
         if not model:
             messagebox.showerror("Ollama required", "No Ollama model is available. Start Ollama and click Refresh models.")
             return
+
         cfg = load_config(ROOT / "config.json")
         cfg.language = self.language.get()
         cfg.local_model = self.model.get()
         cfg.ollama_model = model
         cfg.target_language = self.target.get().strip() or "English"
         cfg.translate_transcript = self.translate_transcript.get()
+        cfg.analysis = self.analysis.get()
+
         self.status.set("Running locally…")
         threading.Thread(target=self.worker, args=(source, cfg), daemon=True).start()
 
