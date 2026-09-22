@@ -1,4 +1,4 @@
 @echo off
 setlocal
-cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\Transcribe-Translate.ps1"
+call "%~dp0START-APP.cmd"
+exit /b %ERRORLEVEL%
