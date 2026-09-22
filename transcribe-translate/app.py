@@ -118,7 +118,7 @@ class App(tk.Tk):
         diar.columnconfigure(1,weight=1)
 
         ttk.Label(opts,text="Cost").grid(row=10,column=2,sticky="w",padx=(28,8))
-        ttk.Label(opts,text="$0 / €0 paid API — this application does not call OpenAI APIs").grid(row=10,column=3,columnspan=2,sticky="w")
+        ttk.Label(opts,text="Core processing: $0 / €0 paid API. Optional OpenAI queries are user-triggered and can incur API charges.").grid(row=10,column=3,columnspan=2,sticky="w")
         ttk.Label(opts,text="Output").grid(row=11,column=0,sticky="w",pady=(8,0))
         ttk.Entry(opts,textvariable=self.output).grid(row=11,column=1,columnspan=4,sticky="ew",pady=(8,0)); opts.columnconfigure(3,weight=1)
 
