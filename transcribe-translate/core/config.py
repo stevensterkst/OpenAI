@@ -21,6 +21,11 @@ class AppConfig:
     analysis: bool = True
     search_query: str = ""
     top_terms: int = 30
+    diarization: bool = False
+    diarization_segmentation_model: str = ""
+    diarization_embedding_model: str = ""
+    diarization_num_speakers: int = 0
+    diarization_threshold: float = 0.5
     output_dir: str = "output"
     ytdlp_path: str = ""
 
@@ -32,6 +37,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     asr = data.get("asr", {})
     text = data.get("text", {})
     analysis = data.get("analysis", {})
+    diar = data.get("diarization", {})
     paths = data.get("paths", {})
     return AppConfig(
         local_model=asr.get("local_model", "small"),
@@ -47,6 +53,11 @@ def load_config(path: Path | None = None) -> AppConfig:
         analysis=bool(text.get("analysis", True)),
         search_query=str(analysis.get("search_query", "")),
         top_terms=int(analysis.get("top_terms", 30)),
+        diarization=bool(diar.get("enabled", False)),
+        diarization_segmentation_model=str(diar.get("segmentation_model", "")),
+        diarization_embedding_model=str(diar.get("embedding_model", "")),
+        diarization_num_speakers=int(diar.get("num_speakers", 0)),
+        diarization_threshold=float(diar.get("cluster_threshold", 0.5)),
         output_dir=paths.get("output_dir", "output"),
         ytdlp_path=paths.get("ytdlp_path", ""),
     )
