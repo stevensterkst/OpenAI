@@ -24,9 +24,7 @@ if (-not $Media) {
       Where-Object { $extensions -contains $_.Extension.ToLowerInvariant() }
   }
   $Media = ($candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-  if (-not $Media) {
-    throw "No test media was supplied and no supported media file was found in Documents, Videos, Music, Desktop or Downloads."
-  }
+  if (-not $Media) { throw "No test media was supplied and no supported media file was found in Documents, Videos, Music, Desktop or Downloads." }
   Write-Host "Auto-selected newest test media: $Media" -ForegroundColor Yellow
 }
 
@@ -58,11 +56,8 @@ if (-not $ff) {
 if (-not $ff) { throw "FFmpeg was not found on PATH or in C:/Program Files/FFmpeg*/bin." }
 Write-Host "FFmpeg: $($ff.Source)" -ForegroundColor Green
 
-try {
-  $ollama = Invoke-RestMethod "http://127.0.0.1:11434/api/tags" -TimeoutSec 10
-} catch {
-  throw "Ollama is not reachable at http://127.0.0.1:11434"
-}
+try { $ollama = Invoke-RestMethod "http://127.0.0.1:11434/api/tags" -TimeoutSec 10 }
+catch { throw "Ollama is not reachable at http://127.0.0.1:11434" }
 $models = @($ollama.models | ForEach-Object { $_.name }) | Where-Object { $_ }
 if ($models.Count -eq 0) { throw "Ollama is reachable but reports no installed models." }
 Write-Host "Ollama models: $($models -join ', ')" -ForegroundColor Green
@@ -84,29 +79,21 @@ foreach ($m in $models) {
     $content = [string]$reply.message.content
     if (-not $content.Trim()) { throw "empty response" }
     Write-Host "PASS $m -> $($content.Trim())" -ForegroundColor Green
-  } catch {
-    throw "Ollama model smoke test failed for $m : $($_.Exception.Message)"
-  }
+  } catch { throw "Ollama model smoke test failed for $m : $($_.Exception.Message)" }
 }
 
-$requiredFiles = @(
-  "core/asr.py","core/config.py","core/text.py","core/pipeline.py",
-  "core/outputs.py","core/media.py","core/search.py","core/diarization.py","app.py"
-)
-foreach($name in $requiredFiles) {
-  if (-not (Test-Path $name)) { throw "Missing application file: $name" }
-}
+$requiredFiles = @("core/asr.py","core/config.py","core/text.py","core/pipeline.py","core/outputs.py","core/media.py","core/search.py","core/diarization.py","app.py")
+foreach($name in $requiredFiles) { if (-not (Test-Path $name)) { throw "Missing application file: $name" } }
 
 $source = Get-Content "core/pipeline.py" -Raw
 $asr = Get-Content "core/asr.py" -Raw
 $gui = Get-Content "app.py" -Raw
 $text = Get-Content "core/text.py" -Raw
 $diar = Get-Content "core/diarization.py" -Raw
-
 $checks = @(
-  @($source, "no OpenAI API calls", "Zero-OpenAI runtime assertion"),
   @($source, "source_summary", "Source-summary stage"),
   @($source, "translate_summary_to_english", "English-summary translation stage"),
+  @($source, "no OpenAI API calls", "Zero-OpenAI runtime assertion"),
   @($asr, "word_timestamps", "Word timestamps"),
   @($asr, "hotwords", "Hotwords"),
   @($gui, "Vocabulary / names", "Vocabulary GUI"),
@@ -115,7 +102,8 @@ $checks = @(
   @($gui, "Enable speaker diarization", "Diarization GUI"),
   @($text, "ask_transcript", "Q&A backend"),
   @($text, "chunk_text", "Long-form chunking"),
-  @($diar, "OfflineSpeakerDiarization", "Offline diarization backend")
+  @($diar, "OfflineSpeakerDiarization", "Offline diarization backend"),
+  @($asr, "zero speech segments", "Empty-transcript safety")
 )
 foreach($check in $checks) {
   if ($check[0] -notmatch [regex]::Escape($check[1])) { throw "Architecture check failed: $($check[2])" }
@@ -125,17 +113,12 @@ Write-Host "Architecture checks: PASS" -ForegroundColor Green
 $env:SS_VERIFY_MEDIA = $mediaPath
 $env:SS_VERIFY_OLLAMA_MODEL = $OllamaModel
 $out = Join-Path $PSScriptRoot "output"
-$env:SS_VERIFY_OUTPUT = (Resolve-Path $out -ErrorAction SilentlyContinue).Path
-if (-not $env:SS_VERIFY_OUTPUT) {
-  New-Item -ItemType Directory -Path $out | Out-Null
-  $env:SS_VERIFY_OUTPUT = (Resolve-Path $out).Path
-}
+if (-not (Test-Path $out)) { New-Item -ItemType Directory -Path $out | Out-Null }
 
 Write-Host ""
 Write-Host "=== REAL END-TO-END LOCAL JOB ===" -ForegroundColor Cyan
 $runCode = @"
-import os
-import sys
+import os, sys
 from pathlib import Path
 sys.path.insert(0, ".")
 from core.config import load_config
@@ -146,9 +129,10 @@ cfg.analysis = True
 cfg.word_timestamps = True
 cfg.search_query = ""
 cfg.qa_question = ""
-job = run_job(os.environ["SS_VERIFY_MEDIA"], cfg, Path(os.environ["SS_VERIFY_OUTPUT"]), print)
+job = run_job(os.environ["SS_VERIFY_MEDIA"], cfg, Path(os.environ["SS_VERIFY_OUTPUT"]) if os.environ.get("SS_VERIFY_OUTPUT") else Path("output"), print)
 print("JOB_OUTPUT=" + str(job))
 "@
+$env:SS_VERIFY_OUTPUT = (Resolve-Path $out).Path
 $runCode | python -
 if ($LASTEXITCODE -ne 0) { throw "The real local pipeline failed." }
 
@@ -166,6 +150,8 @@ foreach($name in $expected) {
 
 $json = Get-Content (Join-Path $latest.FullName "original.json") -Raw | ConvertFrom-Json
 if (-not $json.word_timestamps) { throw "Word timestamps were requested but output JSON says unavailable." }
+if (-not $json.text -or -not $json.text.Trim()) { throw "Original JSON transcript text is empty." }
+if (-not $json.segments -or @($json.segments).Count -eq 0) { throw "Original JSON contains no transcript segments." }
 
 $job = Get-Content (Join-Path $latest.FullName "job.json") -Raw | ConvertFrom-Json
 if ($job.api_cost -notlike "*no OpenAI API*") { throw "Zero-API assertion missing." }
