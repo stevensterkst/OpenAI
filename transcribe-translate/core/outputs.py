@@ -17,15 +17,24 @@ def _ts(seconds: float, comma: bool = True) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
 
 def write_outputs(transcript: Transcript, translation: str, source_summary: str,
-                  english_summary: str, directory: Path, source: str) -> None:
+                  english_summary: str, directory: Path, source: str,
+                  translated: bool = False, target_language: str = "") -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "original.txt").write_text(transcript.text + "\n", encoding="utf-8")
-    (directory / "english.txt").write_text(translation + "\n", encoding="utf-8")
-    (directory / "summary.md").write_text(
-        f"# English summary\n\n{english_summary}\n\n"
-        f"# Original-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n",
+    (directory / "source_summary.md").write_text(
+        f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n",
         encoding="utf-8",
     )
+    (directory / "english_summary.md").write_text(
+        f"# English summary (translation of source-language summary)\n\n{english_summary}\n",
+        encoding="utf-8",
+    )
+
+    if translated:
+        (directory / "translation.txt").write_text(
+            translation + "\n", encoding="utf-8"
+        )
+
     payload = {
         "source": source,
         "language": transcript.language,
@@ -36,6 +45,7 @@ def write_outputs(transcript: Transcript, translation: str, source_summary: str,
     (directory / "original.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+
     if any(s.end > s.start for s in transcript.segments):
         srt: list[str] = []
         vtt: list[str] = ["WEBVTT", ""]
@@ -45,3 +55,15 @@ def write_outputs(transcript: Transcript, translation: str, source_summary: str,
             vtt.extend([f"{_ts(segment.start, False)} --> {_ts(segment.end, False)}", body, ""])
         (directory / "original.srt").write_text("\n".join(srt), encoding="utf-8")
         (directory / "original.vtt").write_text("\n".join(vtt), encoding="utf-8")
+
+    manifest = {
+        "translation_created": translated,
+        "translation_target": target_language if translated else None,
+        "primary_outputs": [
+            "original.txt", "original.json", "original.srt", "original.vtt",
+            "source_summary.md", "english_summary.md"
+        ],
+    }
+    (directory / "output_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
