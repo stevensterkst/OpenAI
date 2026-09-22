@@ -18,9 +18,10 @@ def _ts(seconds: float, comma: bool = True) -> str:
 
 def write_outputs(
     transcript: Transcript, translation: str, source_summary: str,
-    english_summary: str, analysis: str, directory: Path, source: str,
+    english_summary: str, analysis_source: str, analysis_translated: str,
+    search_report: dict, directory: Path, source: str,
     translated: bool = False, target_language: str = "",
-    analysis_created: bool = False,
+    analysis_created: bool = False, analysis_language: str = "source",
 ) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "original.txt").write_text(transcript.text + "\n", encoding="utf-8")
@@ -30,10 +31,23 @@ def write_outputs(
     (directory / "english_summary.md").write_text(
         "# English summary (translation of source-language summary)\n\n"
         f"{english_summary}\n", encoding="utf-8")
+
     if analysis_created:
-        (directory / "analysis.md").write_text(
-            "# Source-grounded meeting / evidence analysis\n\n" + f"{analysis}\n",
+        (directory / "analysis_source.md").write_text(
+            "# Source-grounded analysis — original language\n\n" + f"{analysis_source}\n",
             encoding="utf-8")
+        if analysis_translated:
+            (directory / "analysis.md").write_text(
+                f"# Source-grounded analysis — {analysis_language}\n\n{analysis_translated}\n",
+                encoding="utf-8")
+        else:
+            (directory / "analysis.md").write_text(
+                "# Source-grounded analysis\n\n" + f"{analysis_source}\n",
+                encoding="utf-8")
+
+    (directory / "search_report.json").write_text(
+        json.dumps(search_report, ensure_ascii=False, indent=2), encoding="utf-8")
+
     if translated:
         (directory / "translation.txt").write_text(translation + "\n", encoding="utf-8")
 
@@ -59,12 +73,17 @@ def write_outputs(
         "translation_created": translated,
         "translation_target": target_language if translated else None,
         "analysis_created": analysis_created,
+        "analysis_language": analysis_language if analysis_created else None,
+        "search_report_created": True,
         "word_timestamps_available": any(bool(s.words) for s in transcript.segments),
         "primary_outputs": [
             "original.txt", "original.json", "original.srt", "original.vtt",
             "source_summary.md", "english_summary.md"
         ],
-        "analysis_outputs": ["analysis.md"] if analysis_created else [],
+        "analysis_outputs": (
+            ["analysis_source.md", "analysis.md", "search_report.json"]
+            if analysis_created else ["search_report.json"]
+        ),
         "optional_outputs": ["translation.txt"] if translated else [],
     }
     (directory / "output_manifest.json").write_text(
