@@ -12,8 +12,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("SS Transcribe-Translate — Free Local")
-        self.geometry("1180x900")
-        self.minsize(1000, 800)
+        self.geometry("1200x980")
+        self.minsize(1040, 860)
         self.source = tk.StringVar()
         self.language = tk.StringVar(value="auto")
         self.model = tk.StringVar(value="small")
@@ -26,6 +26,11 @@ class App(tk.Tk):
         self.word_timestamps = tk.BooleanVar(value=True)
         self.translate_transcript = tk.BooleanVar(value=False)
         self.analysis = tk.BooleanVar(value=True)
+        self.diarization = tk.BooleanVar(value=False)
+        self.diarization_segmentation_model = tk.StringVar()
+        self.diarization_embedding_model = tk.StringVar()
+        self.diarization_num_speakers = tk.IntVar(value=0)
+        self.diarization_threshold = tk.DoubleVar(value=0.5)
         self.output = tk.StringVar(value=str(ROOT / "output"))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
@@ -55,25 +60,21 @@ class App(tk.Tk):
         self.ollama_combo.grid(row=0, column=3, sticky="w")
         self.ollama_combo.bind("<<ComboboxSelected>>", lambda _e: self.update_advice())
         ttk.Button(opts, text="Refresh models", command=self.refresh_ollama).grid(row=0, column=4, padx=8)
-
         ttk.Label(opts, text="Recommendation").grid(row=1, column=2, sticky="w", padx=(28, 8))
         ttk.Label(opts, textvariable=self.advice, wraplength=600).grid(row=1, column=3, columnspan=2, sticky="w")
 
         ttk.Label(opts, text="Vocabulary / names").grid(row=2, column=0, sticky="w", pady=(8, 3))
         ttk.Entry(opts, textvariable=self.hotwords, width=48).grid(row=2, column=1, sticky="w", pady=(8, 3))
         ttk.Label(opts, text="Comma-separated names, organisations or specialist terms to bias recognition.", wraplength=520).grid(row=2, column=2, columnspan=3, sticky="w", padx=(28, 0), pady=(8, 3))
-
         ttk.Checkbutton(opts, text="Keep word-level timestamps", variable=self.word_timestamps).grid(row=3, column=0, columnspan=2, sticky="w", pady=3)
         ttk.Checkbutton(opts, text="Run source-grounded meeting/evidence analysis", variable=self.analysis).grid(row=4, column=0, columnspan=2, sticky="w", pady=3)
 
         ttk.Label(opts, text="Analysis output language").grid(row=4, column=2, sticky="w", padx=(28, 8))
         ttk.Entry(opts, textvariable=self.analysis_language, width=32).grid(row=4, column=3, sticky="w")
         ttk.Label(opts, text="source = original language; otherwise any Ollama-supported language.").grid(row=4, column=4, sticky="w")
-
         ttk.Label(opts, text="Search transcript").grid(row=5, column=0, sticky="w", pady=3)
         ttk.Entry(opts, textvariable=self.search_query, width=48).grid(row=5, column=1, sticky="w")
         ttk.Label(opts, text="Exact text search; results include timestamps. Counts/top terms are language-neutral.", wraplength=520).grid(row=5, column=2, columnspan=3, sticky="w", padx=(28,0))
-
         ttk.Label(opts, text="Top terms").grid(row=6, column=0, sticky="w")
         ttk.Spinbox(opts, from_=5, to=200, textvariable=self.top_terms, width=8).grid(row=6, column=1, sticky="w")
 
@@ -82,9 +83,21 @@ class App(tk.Tk):
         ttk.Entry(opts, textvariable=self.target, width=32).grid(row=7, column=3, sticky="w")
         ttk.Label(opts, text="Any language supported by the selected Ollama model.").grid(row=7, column=4, sticky="w")
 
+        diar = ttk.LabelFrame(root, text="Optional local speaker diarization — no cloud / no Torch / no WhisperX", padding=10)
+        diar.pack(fill="x", pady=(0, 10))
+        ttk.Checkbutton(diar, text="Enable speaker diarization", variable=self.diarization).grid(row=0, column=0, sticky="w")
+        ttk.Label(diar, text="Segmentation ONNX model").grid(row=1, column=0, sticky="w")
+        ttk.Entry(diar, textvariable=self.diarization_segmentation_model, width=80).grid(row=1, column=1, columnspan=3, sticky="ew")
+        ttk.Label(diar, text="Speaker embedding ONNX model").grid(row=2, column=0, sticky="w")
+        ttk.Entry(diar, textvariable=self.diarization_embedding_model, width=80).grid(row=2, column=1, columnspan=3, sticky="ew")
+        ttk.Label(diar, text="Known speakers (0 = automatic clustering)").grid(row=3, column=0, sticky="w")
+        ttk.Spinbox(diar, from_=0, to=50, textvariable=self.diarization_num_speakers, width=8).grid(row=3, column=1, sticky="w")
+        ttk.Label(diar, text="Auto cluster threshold").grid(row=3, column=2, sticky="w")
+        ttk.Spinbox(diar, from_=0.1, to=1.0, increment=0.05, textvariable=self.diarization_threshold, width=8).grid(row=3, column=3, sticky="w")
+        diar.columnconfigure(1, weight=1)
+
         ttk.Label(opts, text="Cost").grid(row=8, column=2, sticky="w", padx=(28, 8))
         ttk.Label(opts, text="$0 / €0 paid API — this application does not call OpenAI APIs").grid(row=8, column=3, columnspan=2, sticky="w")
-
         ttk.Label(opts, text="Output").grid(row=9, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(opts, textvariable=self.output).grid(row=9, column=1, columnspan=4, sticky="ew", pady=(8, 0))
         opts.columnconfigure(3, weight=1)
@@ -144,6 +157,7 @@ class App(tk.Tk):
         if not model:
             messagebox.showerror("Ollama required", "No Ollama model is available. Start Ollama and click Refresh models.")
             return
+
         cfg = load_config(ROOT / "config.json")
         cfg.language = self.language.get()
         cfg.local_model = self.model.get()
@@ -156,6 +170,16 @@ class App(tk.Tk):
         cfg.target_language = self.target.get().strip() or "English"
         cfg.translate_transcript = self.translate_transcript.get()
         cfg.analysis = self.analysis.get()
+        cfg.diarization = self.diarization.get()
+        cfg.diarization_segmentation_model = self.diarization_segmentation_model.get().strip()
+        cfg.diarization_embedding_model = self.diarization_embedding_model.get().strip()
+        cfg.diarization_num_speakers = max(0, int(self.diarization_num_speakers.get()))
+        cfg.diarization_threshold = float(self.diarization_threshold.get())
+
+        if cfg.diarization and (not cfg.diarization_segmentation_model or not cfg.diarization_embedding_model):
+            messagebox.showerror("Diarization models required", "Provide both local ONNX model paths before enabling diarization.")
+            return
+
         self.status.set("Running locally…")
         threading.Thread(target=self.worker, args=(source, cfg), daemon=True).start()
 
