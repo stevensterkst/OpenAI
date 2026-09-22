@@ -1,36 +1,74 @@
 $ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
+
 Write-Host "=== OBSOLETE WHISPER/TORCH CLEANUP ===" -ForegroundColor Cyan
-Write-Host "This script removes ONLY openai-whisper and torch, after dependency checks."
+Write-Host "This script removes ONLY openai-whisper and torch after dependency checks."
 
-Write-Host ""
-Write-Host "=== BEFORE ===" -ForegroundColor Yellow
-python -m pip show openai-whisper torch faster-whisper ctranslate2 2>&1
-
-Write-Host ""
-Write-Host "Uninstalling obsolete openai-whisper first..."
-python -m pip uninstall -y openai-whisper
-
-$torch = python -m pip show torch 2>$null
-if (-not $torch) {
-  Write-Host "Torch was already absent." -ForegroundColor Green
-} else {
-  $required = ($torch | Select-String "^Required-by:" | ForEach-Object { $_.Line -replace "^Required-by:s*","" }).Trim()
-  if ($required -and $required -ne "openai-whisper") {
-    throw "REFUSING TO REMOVE Torch because another package still declares it: $required"
-  }
-  Write-Host "No remaining package dependency on Torch was reported; uninstalling Torch..."
-  python -m pip uninstall -y torch
+function Get-PackageInfoText([string]$Name) {
+  $result = python -m pip show $Name 2>&1
+  if ($LASTEXITCODE -eq 0) { return ($result -join [Environment]::NewLine) }
+  return ""
 }
 
 Write-Host ""
-Write-Host "Removing ONLY cached wheels for these two obsolete packages..."
+Write-Host "=== BEFORE ===" -ForegroundColor Yellow
+$whisperInfo = Get-PackageInfoText "openai-whisper"
+$torchInfo = Get-PackageInfoText "torch"
+if ($whisperInfo) { $whisperInfo } else { Write-Host "openai-whisper: NOT INSTALLED" }
+if ($torchInfo) { $torchInfo } else { Write-Host "torch: NOT INSTALLED" }
+
+$fasterInfo = Get-PackageInfoText "faster-whisper"
+$ct2Info = Get-PackageInfoText "ctranslate2"
+if (-not $fasterInfo) { throw "faster-whisper is missing. Refusing cleanup because the required transcription engine is not installed." }
+if (-not $ct2Info) { throw "ctranslate2 is missing. Refusing cleanup because the required transcription engine is not installed." }
+
+Write-Host ""
+Write-Host "=== CHECKING TORCH REVERSE DEPENDENCY ===" -ForegroundColor Yellow
+$remainingTorchUsers = @()
+$installed = python -m pip list --format=json | ConvertFrom-Json
+foreach ($item in $installed) {
+  if ($item.name -in @("torch","openai-whisper")) { continue }
+  $info = Get-PackageInfoText $item.name
+  if ($info -match "(?im)^Requires:\s*.*\btorch\b") {
+    $remainingTorchUsers += $item.name
+  }
+}
+if ($remainingTorchUsers.Count -gt 0) {
+  throw ("REFUSING TO REMOVE Torch. Other installed packages declare Torch: " + ($remainingTorchUsers -join ", "))
+}
+
+Write-Host ""
+if ($whisperInfo) {
+  Write-Host "Uninstalling obsolete openai-whisper..."
+  python -m pip uninstall -y openai-whisper
+  if ($LASTEXITCODE -ne 0) { throw "openai-whisper uninstall failed." }
+} else {
+  Write-Host "openai-whisper already absent." -ForegroundColor Green
+}
+
+if ($torchInfo) {
+  Write-Host "Uninstalling obsolete torch..."
+  python -m pip uninstall -y torch
+  if ($LASTEXITCODE -ne 0) { throw "torch uninstall failed." }
+} else {
+  Write-Host "torch already absent." -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "=== REMOVING ONLY OBSOLETE PIP CACHE ENTRIES ===" -ForegroundColor Yellow
 python -m pip cache remove torch 2>&1
 python -m pip cache remove openai-whisper 2>&1
 
 Write-Host ""
 Write-Host "=== AFTER ===" -ForegroundColor Yellow
-python -m pip show openai-whisper torch 2>&1
-python -m pip show faster-whisper ctranslate2
+if (Get-PackageInfoText "openai-whisper") { throw "openai-whisper is still installed after cleanup." }
+if (Get-PackageInfoText "torch") { throw "torch is still installed after cleanup." }
+if (-not (Get-PackageInfoText "faster-whisper")) { throw "faster-whisper disappeared during cleanup." }
+if (-not (Get-PackageInfoText "ctranslate2")) { throw "ctranslate2 disappeared during cleanup." }
 
+Write-Host "openai-whisper: REMOVED" -ForegroundColor Green
+Write-Host "torch: REMOVED" -ForegroundColor Green
+Write-Host "faster-whisper: PRESENT" -ForegroundColor Green
+Write-Host "ctranslate2: PRESENT" -ForegroundColor Green
 Write-Host ""
-Write-Host "IMPORTANT: FFmpeg, standalone yt-dlp, Python, faster-whisper, CTranslate2, Hugging Face cache and SS project files were NOT targeted." -ForegroundColor Green
+Write-Host "FFmpeg, standalone yt-dlp, Python, Hugging Face cache and SS project files were not targeted." -ForegroundColor Green
