@@ -15,8 +15,7 @@ def diarize_audio(
     except ImportError as exc:
         raise RuntimeError(
             "Speaker diarization is enabled but sherpa-onnx is not installed. "
-            "Install the local sherpa-onnx package only; this feature does not use Torch, WhisperX, "
-            "a cloud service or a paid API."
+            "This is a local ONNX feature; it does not use Torch, WhisperX, cloud services or paid APIs."
         ) from exc
 
     seg = Path(segmentation_model)
@@ -28,26 +27,35 @@ def diarize_audio(
 
     with wave.open(str(audio_path), "rb") as wf:
         if wf.getnchannels() != 1 or wf.getsampwidth() != 2:
-            raise RuntimeError("Diarization expects the application's 16 kHz mono PCM WAV.")
+            raise RuntimeError("Diarization expects the application's mono 16-bit PCM WAV.")
         sample_rate = wf.getframerate()
         raw = wf.readframes(wf.getnframes())
 
     import numpy as np
     samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
-    config = sherpa_onnx.OfflineSpeakerDiarizationConfig()
-    config.segmentation.pyannote.model = str(seg)
-    config.segmentation.pyannote.window_shift_ratio = 0.1
-    config.embedding.model = str(emb)
-    if num_speakers > 0:
-        config.clustering.num_clusters = int(num_speakers)
-    else:
-        config.clustering.threshold = float(threshold)
-    config.min_duration_on = 0.3
-    config.min_duration_off = 0.5
+    # This follows the current official sherpa-onnx Python API:
+    # OfflineSpeakerDiarizationConfig(segmentation=..., embedding=..., clustering=...).
+    config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
+        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
+            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
+                model=str(seg),
+                window_shift_ratio=0.1,
+            ),
+        ),
+        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+            model=str(emb),
+        ),
+        clustering=sherpa_onnx.FastClusteringConfig(
+            num_clusters=int(num_speakers) if num_speakers > 0 else -1,
+            threshold=float(threshold),
+        ),
+        min_duration_on=0.3,
+        min_duration_off=0.5,
+    )
 
     if not config.validate():
-        raise RuntimeError("Invalid sherpa-onnx diarization configuration or missing model files.")
+        raise RuntimeError("Invalid sherpa-onnx speaker-diarization configuration or model files.")
 
     diarizer = sherpa_onnx.OfflineSpeakerDiarization(config)
     if sample_rate != diarizer.sample_rate:
@@ -55,11 +63,15 @@ def diarize_audio(
             f"Diarization model expects {diarizer.sample_rate} Hz; audio is {sample_rate} Hz."
         )
 
-    progress("Local speaker diarization: offline ONNX segmentation + embeddings + clustering")
+    progress("Local speaker diarization: offline ONNX segmentation + 3D-Speaker embeddings + clustering")
     result = diarizer.process(samples)
     result = result.sort_by_start_time()
     return [
-        {"start": float(x.start), "end": float(x.end), "speaker": f"Speaker {int(x.speaker) + 1}"}
+        {
+            "start": float(x.start),
+            "end": float(x.end),
+            "speaker": f"Speaker {int(x.speaker) + 1}",
+        }
         for x in result
     ]
 
