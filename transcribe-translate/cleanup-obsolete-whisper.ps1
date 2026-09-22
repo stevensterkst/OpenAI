@@ -5,8 +5,12 @@ Write-Host "=== OBSOLETE WHISPER/TORCH CLEANUP ===" -ForegroundColor Cyan
 Write-Host "This script removes ONLY openai-whisper and torch after dependency checks."
 
 function Get-PackageInfoText([string]$Name) {
-  $result = python -m pip show $Name 2>&1
-  if ($LASTEXITCODE -eq 0) { return ($result -join [Environment]::NewLine) }
+  $oldNativeErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $result = @(& python -m pip show $Name 2>$null)
+  $exitCode = $LASTEXITCODE
+  $ErrorActionPreference = $oldNativeErrorAction
+  if ($exitCode -eq 0) { return ($result -join [Environment]::NewLine) }
   return ""
 }
 
@@ -29,7 +33,7 @@ $installed = python -m pip list --format=json | ConvertFrom-Json
 foreach ($item in $installed) {
   if ($item.name -in @("torch","openai-whisper")) { continue }
   $info = Get-PackageInfoText $item.name
-  if ($info -match "(?im)^Requires:\s*.*\btorch\b") {
+  if ($info -match "(?im)^Requires:s*.*torch") {
     $remainingTorchUsers += $item.name
   }
 }
@@ -56,8 +60,11 @@ if ($torchInfo) {
 
 Write-Host ""
 Write-Host "=== REMOVING ONLY OBSOLETE PIP CACHE ENTRIES ===" -ForegroundColor Yellow
-python -m pip cache remove torch 2>&1
-python -m pip cache remove openai-whisper 2>&1
+$oldNativeErrorAction = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& python -m pip cache remove torch 2>$null
+& python -m pip cache remove openai-whisper 2>$null
+$ErrorActionPreference = $oldNativeErrorAction
 
 Write-Host ""
 Write-Host "=== AFTER ===" -ForegroundColor Yellow
