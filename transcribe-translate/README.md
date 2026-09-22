@@ -83,7 +83,7 @@ The analysis layer is deliberately conservative:
 
 The application does not install, replace or modify the user's existing FFmpeg or standalone yt-dlp.
 
-For YouTube input, configure `paths.ytdlp_path` if the existing standalone executable is not on PATH.
+For YouTube input, the application first looks for an existing standalone Windows `yt-dlp.exe` in PATH, the project's `tools` directory, the Python Scripts locations, and other common user locations. It does not move or install it. If no standalone executable exists but the already-installed Python `yt-dlp` package is available, the application uses that package directly as a fallback. A GUI Browse button remains available for an executable at an arbitrary location.
 
 ## Obsolete Whisper/Torch cleanup
 
@@ -108,3 +108,25 @@ Verification status after the 2026-09-22 audit:
 - Speaker diarization remains optional and is NOT claimed as verified: sherpa-onnx and compatible local ONNX speaker models were not present in the audited PC state.
 
 No code inspection can honestly substitute for the final real run on a genuine recording containing speech.
+
+
+## Requirements audit — 2026-09-22
+
+The application is intentionally source-first and local at runtime:
+
+- **Primary:** original/source-language transcript with timestamps.
+- **Primary:** source-language summary generated from the original transcript.
+- **English summary:** translation of that source summary, not a second independent summary.
+- **Optional:** full transcript translation to a selected target language.
+- **Optional:** source-grounded analysis, transcript search/top terms, and transcript-grounded Q&A.
+- **Languages:** source language can be auto-detected or entered as a Whisper language code; analysis/Q&A/translation outputs are independently selectable.
+- **ASR:** faster-whisper + CTranslate2; no WhisperX/Torch runtime.
+- **Ollama:** every installed local model is exposed in the GUI; the recommendation is only a heuristic and never overrides the user's selection.
+- **YouTube:** existing yt-dlp executable is preferred; the already-installed Python yt-dlp package is a non-installing fallback. Existing FFmpeg is used for merging/extraction.
+- **No paid OpenAI API calls:** the application runtime does not call OpenAI APIs.
+- **No automatic destructive cleanup:** obsolete package cleanup requires an explicit switch.
+- **Diarization:** local ONNX-only design; not claimed operational until sherpa-onnx and compatible model files are actually present.
+- **Provenance:** input SHA-256 and job metadata are recorded.
+- **Exports:** TXT, JSON, SRT, VTT, Markdown summaries/analysis and optional translation/Q&A.
+
+Features identified during competitor review but deliberately not treated as silently completed include watch-folder automation, a persistent searchable job library, synchronized media playback, and multi-file batch orchestration. Those require separate product work; the repository must not claim them as implemented merely because related concepts exist.
