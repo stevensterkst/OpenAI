@@ -12,11 +12,23 @@ from .text import OllamaTextProvider, model_advice
 LANGUAGE_NAMES = {
     "ca": "Catalan", "es": "Spanish", "en": "English",
     "fr": "French", "de": "German", "it": "Italian",
+    "nl": "Dutch", "pt": "Portuguese", "pl": "Polish",
+    "ru": "Russian", "uk": "Ukrainian",
 }
+
+def timestamped_transcript(transcript) -> str:
+    lines = []
+    for segment in transcript.segments:
+        start = int(segment.start)
+        h, rem = divmod(start, 3600)
+        m, s = divmod(rem, 60)
+        lines.append(f"[{h:02d}:{m:02d}:{s:02d}] {segment.text}")
+    return "\n".join(lines)
 
 def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    job_dir = output_root / f"{stamp}_{Path(source).stem[:80] if not is_url(source) else 'youtube'}"
+    stem = Path(source).stem[:80] if not is_url(source) else "youtube"
+    job_dir = output_root / f"{stamp}_{stem}"
     work = job_dir / "_work"
     work.mkdir(parents=True, exist_ok=True)
 
@@ -29,21 +41,26 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         cfg.local_model, cfg.language, cfg.compute_type, progress
     ).transcribe(audio)
 
-    source_name = LANGUAGE_NAMES.get(
-        transcript.language or cfg.language,
-        transcript.language or "source language",
-    )
+    detected_code = transcript.language or cfg.language
+    source_name = LANGUAGE_NAMES.get(detected_code, detected_code or "source language")
     progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
 
     provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
 
-    # PRIMARY summary: original-language transcript -> original-language summary.
+    # PRIMARY: original recording -> local/source transcript.
+    # PRIMARY summary: source transcript -> source-language summary.
     source_summary = provider.summarize_source(transcript.text, source_name)
 
-    # English summary is ONLY a translation of the primary source summary.
+    # English summary is ONLY a translation of the source-language summary.
     english_summary = provider.translate_summary_to_english(source_summary, source_name)
 
-    # Optional full transcript translation; independent of the summaries.
+    # Historical meeting/evidence/governance layer. It remains downstream of the
+    # source transcript and never replaces it.
+    analysis = ""
+    if cfg.analysis:
+        analysis = provider.analyze_source(timestamped_transcript(transcript), source_name)
+
+    # Optional full transcript translation; independent of both summaries and analysis.
     translation = ""
     if cfg.translate_transcript:
         translation = provider.translate(
@@ -55,10 +72,12 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         translation,
         source_summary,
         english_summary,
+        analysis,
         job_dir,
         source,
         translated=cfg.translate_transcript,
         target_language=cfg.target_language,
+        analysis_created=cfg.analysis,
     )
 
     tier, advice = model_advice(cfg.ollama_model)
@@ -72,6 +91,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         "ollama_model_advice": {"tier": tier, "note": advice},
         "source_summary": "generated from original-language transcript",
         "english_summary": "translation of source-language summary",
+        "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
         "full_transcript_translation": cfg.translate_transcript,
         "target_language": cfg.target_language if cfg.translate_transcript else None,
         "api_cost": "0: no OpenAI API calls are made by this application",
