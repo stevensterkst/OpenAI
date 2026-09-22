@@ -83,7 +83,7 @@ The analysis layer is deliberately conservative:
 
 The application does not install, replace or modify the user's existing FFmpeg or standalone yt-dlp.
 
-For YouTube input, the application first looks for an existing standalone Windows `yt-dlp.exe` in PATH, the project's `tools` directory, the Python Scripts locations, and other common user locations. It does not move or install it. If no standalone executable exists but the already-installed Python `yt-dlp` package is available, the application uses that package directly as a fallback. A GUI Browse button remains available for an executable at an arbitrary location.
+For YouTube input, the application first looks for an existing standalone Windows `yt-dlp.exe` in PATH, the project's `tools` directory, the Python Scripts locations, and other common user locations. It does not move or install it. If no standalone executable exists but the already-installed Python `yt-dlp` package is available, the application uses that package directly as a fallback. A GUI Browse button remains available for an executable at an arbitrary location. For current YouTube extraction, full support may also require yt-dlp's EJS component and a supported JavaScript runtime; the application reports that prerequisite state instead of pretending that yt-dlp alone guarantees full YouTube support.
 
 ## Obsolete Whisper/Torch cleanup
 
