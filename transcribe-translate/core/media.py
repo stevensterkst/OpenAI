@@ -53,7 +53,10 @@ def find_ytdlp(configured: str = "", progress=print) -> str:
         home / "Downloads" / "yt-dlp.exe",
         home / "Desktop" / "yt-dlp.exe",
         home / "Documents" / "yt-dlp.exe",
+        home / "AppData" / "Roaming" / "Python" / "Python313" / "Scripts" / "yt-dlp.exe",
         home / "AppData" / "Roaming" / "Python" / "yt-transcript-tool" / "yt-dlp.exe",
+        Path(sys.executable).resolve().parent / "yt-dlp.exe",
+        local / "Programs" / "Python" / "Python313" / "Scripts" / "yt-dlp.exe",
         local / "yt-dlp.exe",
         local / "Programs" / "yt-dlp" / "yt-dlp.exe",
         local / "Programs" / "yt-dlp.exe",
@@ -67,19 +70,7 @@ def find_ytdlp(configured: str = "", progress=print) -> str:
         if candidate.is_file():
             return str(candidate.resolve())
 
-    # Last-resort read-only discovery in the user's profile. We deliberately
-    # skip caches, node_modules and the Git tree to avoid an expensive scan.
-    skip_names = {".git", ".cache", "node_modules", "AppData\\Local\\Temp", "AppData\\Local\\Packages"}
-    progress("Searching the user profile for an existing yt-dlp.exe (read-only)...")
-    try:
-        for root, dirs, files in os.walk(home, topdown=True):
-            dirs[:] = [d for d in dirs if d not in {".git", ".cache", "node_modules", "Temp", "Packages"}]
-            if "yt-dlp.exe" in files:
-                found = Path(root) / "yt-dlp.exe"
-                return str(found.resolve())
-    except OSError:
-        pass
-
+    # Do not recursively scan the whole profile: an arbitrary profile scan can hit synced/cloud trees and become slow.\n
     raise FileNotFoundError(
         "No existing yt-dlp.exe was found. The application did not install or move one. "
         "Use Browse yt-dlp… once to select your existing standalone executable."
