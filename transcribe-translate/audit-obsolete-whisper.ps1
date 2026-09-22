@@ -45,8 +45,11 @@ foreach ($t in @("torch","whisper","openai_whisper")) {
 Write-Host ""
 Write-Host "=== PIP CACHE ===" -ForegroundColor Yellow
 python -m pip cache info
-Get-ChildItem "$env:LOCALAPPDATApipcache" -Recurse -File -Force -ErrorAction SilentlyContinue |
-  Measure-Object Length -Sum
+$pipCache = Join-Path $env:LOCALAPPDATA "pipcache"
+if (Test-Path $pipCache) {
+  Get-ChildItem $pipCache -Recurse -File -Force -ErrorAction SilentlyContinue |
+    Measure-Object Length -Sum
+}
 
 Write-Host ""
 Write-Host "=== HUGGING FACE CACHE TOP 50 FILES ===" -ForegroundColor Yellow
