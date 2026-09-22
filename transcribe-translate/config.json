@@ -2,7 +2,9 @@
   "asr": {
     "local_model": "small",
     "language": "auto",
-    "compute_type": "int8"
+    "compute_type": "int8",
+    "word_timestamps": true,
+    "hotwords": ""
   },
   "text": {
     "ollama_url": "http://127.0.0.1:11434",
