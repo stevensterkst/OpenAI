@@ -59,10 +59,10 @@ class App(tk.Tk):
         ttk.Label(box, text="Local media file or YouTube URL").grid(row=0,column=0,sticky="w")
         ttk.Entry(box,textvariable=self.source).grid(row=1,column=0,sticky="ew",padx=(0,8))
         ttk.Button(box,text="Browse…",command=self.browse).grid(row=1,column=1)
-        ttk.Label(box,text="Existing yt-dlp.exe (YouTube only)").grid(row=2,column=0,sticky="w",pady=(8,0))
+        ttk.Label(box,text="Existing yt-dlp command (YouTube only)").grid(row=2,column=0,sticky="w",pady=(8,0))
         ttk.Entry(box,textvariable=self.ytdlp_path).grid(row=3,column=0,sticky="ew",padx=(0,8))
         ttk.Button(box,text="Browse yt-dlp…",command=self.browse_ytdlp).grid(row=3,column=1)
-        ttk.Label(box,text="Auto-detected when possible; the app never installs or modifies it.").grid(row=4,column=0,columnspan=2,sticky="w")
+        ttk.Label(box,text="Auto-detected from standalone yt-dlp.exe or the existing local Python yt-dlp package; the app does not modify either.").grid(row=4,column=0,columnspan=2,sticky="w")
         box.columnconfigure(0,weight=1)
 
         opts = ttk.LabelFrame(root,text="Processing",padding=10); opts.pack(fill="x",pady=10)
