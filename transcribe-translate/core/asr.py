@@ -52,7 +52,7 @@ class FasterWhisperASR:
         }
         if self.hotwords:
             kwargs["hotwords"] = self.hotwords
-        return model.transcribe(str(audio), **kwargs)
+        return model.transcribe(audio, **kwargs)
 
     def _collect(self, model, audio, language):
         segments, info = self._run(model, audio, language, True)
@@ -110,24 +110,23 @@ class FasterWhisperASR:
 
             all_segments = []
             detected_language = None
-            with __import__("contextlib").nullcontext():
-                for i, (start, end) in enumerate(ranges, 1):
-                    offset = start / float(rate)
-                    wf.setpos(start)
-                    raw = wf.readframes(end - start)
-                    # Decode directly from the bounded NumPy chunk. This guarantees
-                    # faster-whisper receives at most CHUNK_SECONDS of audio per request.
-                    samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
-                    self.progress(f"Transcribing chunk {i}/{len(ranges)} ({offset/60:.1f} min)…")
-                    collected, info = self._collect(model, samples, language if language else detected_language)
-                    if detected_language is None:
-                        detected_language = getattr(info, "language", None) or language
-                    for s in collected:
-                        s.start += offset; s.end += offset
-                        if s.words:
-                            for w in s.words:
-                                w.start += offset; w.end += offset
-                        all_segments.append(s)
+            for i, (start, end) in enumerate(ranges, 1):
+                offset = start / float(rate)
+                wf.setpos(start)
+                raw = wf.readframes(end - start)
+                # Decode directly from the bounded NumPy chunk. This guarantees
+                # faster-whisper receives at most CHUNK_SECONDS of audio per request.
+                samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                self.progress(f"Transcribing chunk {i}/{len(ranges)} ({offset/60:.1f} min)…")
+                collected, info = self._collect(model, samples, language if language else detected_language)
+                if detected_language is None:
+                    detected_language = getattr(info, "language", None) or language
+                for s in collected:
+                    s.start += offset; s.end += offset
+                    if s.words:
+                        for w in s.words:
+                            w.start += offset; w.end += offset
+                    all_segments.append(s)
 
         if not all_segments:
             raise RuntimeError("Local transcription produced zero speech segments. No downstream AI stage was run.")
