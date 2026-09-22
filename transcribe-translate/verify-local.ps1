@@ -22,6 +22,9 @@ import requests
 print("Python packages: OK")
 print("faster-whisper:", getattr(faster_whisper, "__version__", "installed"))
 print("ctranslate2:", getattr(ctranslate2, "__version__", "installed"))
+try:
+ import sherpa_onnx; print("sherpa-onnx:", getattr(sherpa_onnx, "__version__", "installed"))
+except ImportError: print("sherpa-onnx: NOT INSTALLED")
 "@
 $pkgCheck | python -
 if ($LASTEXITCODE -ne 0) { throw "Required Python package import test failed." }
@@ -74,6 +77,9 @@ $asr = Get-Content "core/asr.py" -Raw
 $gui = Get-Content "app.py" -Raw
 $text = Get-Content "core/text.py" -Raw
 $diar = Get-Content "core/diarization.py" -Raw
+$batch = Get-Content "core/batch.py" -Raw
+$library = Get-Content "core/library.py" -Raw
+$player = Get-Content "core/player.py" -Raw
 $checks = @(
   @($source, "source_summary", "Source-summary stage"),
   @($source, "translate_summary_to_english", "English-summary translation stage"),
@@ -87,6 +93,9 @@ $checks = @(
   @($text, "ask_transcript", "Q&A backend"),
   @($text, "chunk_text", "Long-form chunking"),
   @($diar, "OfflineSpeakerDiarization", "Offline diarization backend"),
+  @($batch, "run_batch", "Batch processing backend"),
+  @($library, "search_jobs", "Persistent searchable library"),
+  @($player, "write_player", "Synchronized transcript player"),
   @($asr, "zero speech segments", "Empty-transcript safety")
 )
 foreach($check in $checks) {
@@ -123,7 +132,7 @@ if ($LASTEXITCODE -ne 0) { throw "The real local pipeline failed." }
 $latest = Get-ChildItem $out -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $latest) { throw "No output directory was created." }
 
-$expected = @("original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md","analysis_source.md","analysis.md","search_report.json","job.json","output_manifest.json")
+$expected = @("original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md","analysis_source.md","analysis.md","search_report.json","job.json","output_manifest.json","player.html")
 foreach($name in $expected) {
   $p = Join-Path $latest.FullName $name
   if (-not (Test-Path $p)) { throw "Missing expected output: $name" }
