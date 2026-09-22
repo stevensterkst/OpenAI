@@ -45,7 +45,7 @@ foreach ($t in @("torch","whisper","openai_whisper")) {
 Write-Host ""
 Write-Host "=== PIP CACHE ===" -ForegroundColor Yellow
 python -m pip cache info
-$pipCache = Join-Path $env:LOCALAPPDATA "pipcache"
+$pipCache = Join-Path (Join-Path $env:LOCALAPPDATA "pip") "cache"
 if (Test-Path $pipCache) {
   Get-ChildItem $pipCache -Recurse -File -Force -ErrorAction SilentlyContinue |
     Measure-Object Length -Sum
@@ -53,7 +53,7 @@ if (Test-Path $pipCache) {
 
 Write-Host ""
 Write-Host "=== HUGGING FACE CACHE TOP 50 FILES ===" -ForegroundColor Yellow
-$hf = Join-Path $env:USERPROFILE ".cachehuggingface"
+$hf = Join-Path (Join-Path $env:USERPROFILE ".cache") "huggingface"
 if (Test-Path $hf) {
   Get-ChildItem $hf -Recurse -File -Force -ErrorAction SilentlyContinue |
     Sort-Object Length -Descending |
@@ -63,8 +63,9 @@ if (Test-Path $hf) {
 Write-Host ""
 Write-Host "=== REPO IMPORT SEARCH ===" -ForegroundColor Yellow
 $repo = Split-Path $PSScriptRoot -Parent
+$patterns = @("import torch","from torch","import whisper","from whisper","import whisperx","from whisperx","import faster_whisper","from faster_whisper","import ctranslate2","from ctranslate2","import sherpa_onnx","from sherpa_onnx")
 Get-ChildItem $repo -Recurse -File -Include *.py,*.ps1,*.bat,*.toml,*.txt -ErrorAction SilentlyContinue |
-  Select-String -Pattern '^s*(import|from)s+(torch|whisper|whisperx|faster_whisper|ctranslate2|sherpa_onnx)' |
+  Select-String -Pattern $patterns |
   Select-Object Path,LineNumber,Line
 
 Write-Host ""
