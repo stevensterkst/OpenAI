@@ -13,6 +13,7 @@ from core.batch import discover_media, run_batch
 from core.library import reindex, search_jobs
 from core.watch import watch_folder
 from core.text import OllamaTextProvider, model_advice
+from core.query import TranscriptQuery
 
 class App(tk.Tk):
     def __init__(self):
@@ -294,8 +295,53 @@ class App(tk.Tk):
             player=Path(sel[0])/"player.html"
             if player.exists(): webbrowser.open(player.as_uri())
             else: messagebox.showerror("Player missing","This job has no player.html.")
+        ttk.Button(top,text="Open transcript workspace",command=lambda:self.open_workspace(Path(tree.selection()[0])) if tree.selection() else None).pack(side="left",padx=8)
         ttk.Button(top,text="Open synchronized player",command=open_selected).pack(side="left")
         refresh()
+
+    def open_workspace(self, job_dir: Path):
+        if not job_dir.exists():
+            messagebox.showerror("Job missing", str(job_dir)); return
+        def read(name):
+            p=job_dir/name
+            return p.read_text(encoding="utf-8") if p.exists() else "(not generated)"
+        transcript=read("transcript.md"); summary=read("source_summary.md"); analysis=read("analysis.md")
+        win=tk.Toplevel(self); win.title("SS Transcript Workspace — "+job_dir.name); win.geometry("1180x800")
+        top=ttk.Frame(win,padding=10); top.pack(fill="both",expand=True)
+        bar=ttk.Frame(top); bar.pack(fill="x")
+        provider=tk.StringVar(value="Ollama"); openai_model=tk.StringVar(value=os.environ.get("OPENAI_MODEL","gpt-5.6-luna"))
+        question=tk.StringVar(); answer_lang=tk.StringVar(value="English")
+        ttk.Label(bar,text="Query provider").pack(side="left")
+        ttk.Combobox(bar,textvariable=provider,values=["Ollama","OpenAI"],state="readonly",width=12).pack(side="left",padx=6)
+        ttk.Label(bar,text="OpenAI model").pack(side="left",padx=(16,4)); ttk.Entry(bar,textvariable=openai_model,width=22).pack(side="left")
+        ttk.Label(bar,text="Answer language").pack(side="left",padx=(16,4)); ttk.Entry(bar,textvariable=answer_lang,width=16).pack(side="left")
+        ttk.Label(bar,text="Question").pack(side="left",padx=(16,4)); ttk.Entry(bar,textvariable=question,width=38).pack(side="left",fill="x",expand=True)
+        tabs=ttk.Notebook(top); tabs.pack(fill="both",expand=True,pady=8)
+        texts={}
+        for title,data in [("Transcript",transcript),("Source summary",summary),("Analysis",analysis),("Query answer","")]:
+            frame=ttk.Frame(tabs); tabs.add(frame,text=title)
+            txt=tk.Text(frame,wrap="word",font=("Segoe UI",10)); txt.pack(fill="both",expand=True)
+            txt.insert("1.0",data); txt.config(state="disabled"); texts[title]=txt
+        def do_query():
+            q=question.get().strip()
+            if not q: messagebox.showerror("Question required","Enter a question about this recording."); return
+            context=read("transcript.md")
+            def worker():
+                try:
+                    engine=TranscriptQuery(load_config().ollama_url,self.ollama_model.get().strip(),self.logmsg)
+                    if provider.get()=="OpenAI":
+                        ans=engine.ask_openai(context,q,answer_lang.get().strip() or "English",openai_model.get().strip() or "gpt-5.6-luna")
+                    else:
+                        ans=engine.ask_ollama(context,q,answer_lang.get().strip() or "English")
+                    def show():
+                        t=texts["Query answer"]; t.config(state="normal"); t.delete("1.0","end"); t.insert("1.0",ans); t.config(state="disabled"); tabs.select(3)
+                    win.after(0,show)
+                except Exception as exc:
+                    self.logmsg("QUERY ERROR: "+str(exc)); win.after(0,lambda:messagebox.showerror("Query failed",str(exc)))
+            threading.Thread(target=worker,daemon=True).start()
+        ttk.Button(bar,text="Ask",command=do_query).pack(side="left",padx=8)
+        ttk.Button(bar,text="Open job folder",command=lambda:os.startfile(job_dir)).pack(side="left")
+        ttk.Label(top,text="All generated files remain in the job folder. Querying is transcript-grounded; OpenAI is optional and never used automatically.",wraplength=1100).pack(anchor="w")
 
     def logmsg(self,msg):
         self.after(0,lambda:(self.log.insert("end",msg+"\n"),self.log.see("end"),self.status.set(msg[:150])))
