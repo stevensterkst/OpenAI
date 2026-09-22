@@ -36,6 +36,7 @@ class AppConfig:
     diarization_threshold: float = 0.5
     output_dir: str = "output"
     ytdlp_path: str = ""
+    keep_media: bool = False
 
 def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
     path = path or (ROOT / "config.local.json")
@@ -63,7 +64,7 @@ def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
             "num_speakers": config.diarization_num_speakers,
             "cluster_threshold": config.diarization_threshold,
         },
-        "paths": {"output_dir": config.output_dir, "ytdlp_path": config.ytdlp_path},
+        "paths": {"output_dir": config.output_dir, "ytdlp_path": config.ytdlp_path, "keep_media": config.keep_media},
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -97,4 +98,5 @@ def load_config(path: Path | None = None) -> AppConfig:
         diarization_num_speakers=int(diar.get("num_speakers", 0)),
         diarization_threshold=float(diar.get("cluster_threshold", 0.5)),
         output_dir=paths.get("output_dir", "output"), ytdlp_path=paths.get("ytdlp_path", ""),
+        keep_media=bool(paths.get("keep_media", False)),
     )
