@@ -1,10 +1,16 @@
 from __future__ import annotations
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+if getattr(sys, "frozen", False):
+    # In a PyInstaller onedir build, config.local.json, models and runtime are
+    # deliberately shipped beside the EXE, not inside PyInstaller internals.
+    ROOT = Path(sys.executable).resolve().parent
+else:
+    ROOT = Path(__file__).resolve().parents[1]
 
 @dataclass
 class AppConfig:
