@@ -5,7 +5,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from core.config import ROOT, load_config
+from core.config import ROOT, load_config, save_local_config
 from core.media import find_ytdlp, is_url
 from core.pipeline import run_job
 from core.text import OllamaTextProvider, model_advice
@@ -17,7 +17,7 @@ class App(tk.Tk):
         self.geometry("1200x1020")
         self.minsize(1040, 900)
         self.source = tk.StringVar(value=os.environ.get("SS_TRANSCRIBE_SOURCE", ""))
-        self.ytdlp_path = tk.StringVar()
+        self.ytdlp_path = tk.StringVar(value=load_config(ROOT / "config.json").ytdlp_path)
         self.language = tk.StringVar(value="auto")
         self.model = tk.StringVar(value="small")
         self.ollama_model = tk.StringVar()
@@ -193,6 +193,8 @@ class App(tk.Tk):
         cfg.diarization=self.diarization.get(); cfg.diarization_segmentation_model=self.diarization_segmentation_model.get().strip()
         cfg.diarization_embedding_model=self.diarization_embedding_model.get().strip(); cfg.diarization_num_speakers=max(0,int(self.diarization_num_speakers.get()))
         cfg.diarization_threshold=float(self.diarization_threshold.get())
+        cfg.output_dir=self.output.get().strip() or str(ROOT / "output")
+        save_local_config(cfg)
         if cfg.diarization and (not cfg.diarization_segmentation_model or not cfg.diarization_embedding_model):
             messagebox.showerror("Diarization models required","Provide both local ONNX model paths before enabling diarization."); return
         self.status.set("Running locally…"); threading.Thread(target=self.worker,args=(source,cfg),daemon=True).start()
