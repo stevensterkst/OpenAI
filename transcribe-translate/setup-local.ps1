@@ -32,15 +32,20 @@ if(!(Test-Path $emb)){
 }
 
 $local=Join-Path $PSScriptRoot "config.local.json"
-$data=@{}
-if(Test-Path $local){$data=Get-Content $local -Raw | ConvertFrom-Json -AsHashtable}
-if(!$data.ContainsKey("diarization")){$data.diarization=@{}}
-$data.diarization.enabled=$true
-$data.diarization.segmentation_model=(Join-Path $segDir "model.onnx")
-$data.diarization.embedding_model=$emb
-$data.diarization.num_speakers=0
-$data.diarization.cluster_threshold=0.5
-$data | ConvertTo-Json -Depth 8 | Set-Content $local -Encoding UTF8
+# Windows PowerShell 5.1 does not support ConvertFrom-Json -AsHashtable.
+# Preserve existing local settings and update only diarization.
+if(Test-Path $local){ $data=Get-Content $local -Raw | ConvertFrom-Json } else { $data=[pscustomobject]@{} }
+if(-not $data.PSObject.Properties["diarization"]){ $data | Add-Member -MemberType NoteProperty -Name diarization -Value ([pscustomobject]@{}) }
+$diar=$data.diarization
+foreach($name in @("enabled","segmentation_model","embedding_model","num_speakers","cluster_threshold")){
+  if(-not $diar.PSObject.Properties[$name]){ $diar | Add-Member -MemberType NoteProperty -Name $name -Value $null }
+}
+$diar.enabled=$true
+$diar.segmentation_model=(Join-Path $segDir "model.onnx")
+$diar.embedding_model=$emb
+$diar.num_speakers=0
+$diar.cluster_threshold=0.5
+$data | ConvertTo-Json -Depth 12 | Set-Content $local -Encoding UTF8
 Write-Host "Diarization installed/configured: PASS" -ForegroundColor Green
 Write-Host "Deno installed locally in: $runtime"
 Write-Host "No Torch, WhisperX, FFmpeg or standalone yt-dlp.exe was installed or changed."
