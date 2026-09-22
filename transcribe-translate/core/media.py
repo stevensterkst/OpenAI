@@ -28,18 +28,46 @@ def find_ffmpeg() -> str:
 
 def find_ytdlp(configured: str = "") -> str:
     candidates = []
-    if configured:
-        candidates.append(Path(os.path.expandvars(os.path.expanduser(configured))))
-    candidates.append(Path(__file__).resolve().parents[1] / "tools" / "yt-dlp.exe")
-    path = shutil.which("yt-dlp")
-    if path:
-        candidates.append(Path(path))
+
+    def add(value: str | Path):
+        if not value:
+            return
+        p = Path(os.path.expandvars(os.path.expanduser(str(value))))
+        if p not in candidates:
+            candidates.append(p)
+
+    add(configured)
+    add(os.environ.get("YTDLP_PATH", ""))
+    add(Path(__file__).resolve().parents[1] / "tools" / "yt-dlp.exe")
+
+    found = shutil.which("yt-dlp.exe") or shutil.which("yt-dlp")
+    if found:
+        add(found)
+
+    # Common locations for a manually downloaded standalone Windows yt-dlp.exe.
+    home = Path.home()
+    local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+    roaming = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+    common = [
+        home / "Downloads" / "yt-dlp.exe",
+        home / "Desktop" / "yt-dlp.exe",
+        home / "Documents" / "yt-dlp.exe",
+        local / "yt-dlp.exe",
+        local / "Programs" / "yt-dlp" / "yt-dlp.exe",
+        local / "Programs" / "yt-dlp.exe",
+        roaming / "yt-dlp" / "yt-dlp.exe",
+    ]
+    for p in common:
+        add(p)
+
     for candidate in candidates:
         if candidate.is_file():
-            return str(candidate)
-    raise RuntimeError(
-        "yt-dlp.exe was not found. For YouTube input, set paths.ytdlp_path in config.json "
-        "to your existing standalone yt-dlp.exe. It is not installed or changed by this app."
+            return str(candidate.resolve())
+
+    raise FileNotFoundError(
+        "yt-dlp.exe was not found automatically. Select your existing standalone "
+        "yt-dlp.exe with the Browse button in the YouTube input section. "
+        "This application will not install, replace, update, or modify yt-dlp."
     )
 
 def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
