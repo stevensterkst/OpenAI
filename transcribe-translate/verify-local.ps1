@@ -132,7 +132,7 @@ if ($LASTEXITCODE -ne 0) { throw "The real local pipeline failed." }
 $latest = Get-ChildItem $out -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $latest) { throw "No output directory was created." }
 
-$expected = @("original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md","analysis_source.md","analysis.md","search_report.json","job.json","output_manifest.json","player.html")
+$expected = @("original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md","analysis_source.md","analysis.md","search_report.json","job.json","output_manifest.json","player.html")
 foreach($name in $expected) {
   $p = Join-Path $latest.FullName $name
   if (-not (Test-Path $p)) { throw "Missing expected output: $name" }
