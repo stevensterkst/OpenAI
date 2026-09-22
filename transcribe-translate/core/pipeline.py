@@ -124,7 +124,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
                         "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None},
         "full_transcript_translation": cfg.translate_transcript,
         "target_language": cfg.target_language if cfg.translate_transcript else None,
-        "api_cost": "0: no OpenAI API calls are made by this application",
+        "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
     }
     (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     write_player(job_dir, media, job_dir / "original.json")
