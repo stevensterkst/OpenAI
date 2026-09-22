@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
+import hashlib
 import json
 
 from .asr import FasterWhisperASR
@@ -25,6 +26,13 @@ def timestamped_transcript(transcript) -> str:
         lines.append(f"[{h:02d}:{m:02d}:{s:02d}] {segment.text}")
     return "\n".join(lines)
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     stem = Path(source).stem[:80] if not is_url(source) else "youtube"
@@ -34,11 +42,19 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
 
     progress("Preparing media...")
     media = prepare_media(source, work, cfg.ytdlp_path)
+    media_hash = sha256_file(media)
+    progress(f"Input SHA-256: {media_hash}")
+
     progress("Extracting 16 kHz mono audio...")
     audio = extract_audio(media, work / "audio.wav")
 
     transcript = FasterWhisperASR(
-        cfg.local_model, cfg.language, cfg.compute_type, progress
+        cfg.local_model,
+        cfg.language,
+        cfg.compute_type,
+        hotwords=cfg.hotwords,
+        word_timestamps=cfg.word_timestamps,
+        progress=progress,
     ).transcribe(audio)
 
     detected_code = transcript.language or cfg.language
@@ -47,20 +63,13 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
 
     provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
 
-    # PRIMARY: original recording -> local/source transcript.
-    # PRIMARY summary: source transcript -> source-language summary.
     source_summary = provider.summarize_source(transcript.text, source_name)
-
-    # English summary is ONLY a translation of the source-language summary.
     english_summary = provider.translate_summary_to_english(source_summary, source_name)
 
-    # Historical meeting/evidence/governance layer. It remains downstream of the
-    # source transcript and never replaces it.
     analysis = ""
     if cfg.analysis:
         analysis = provider.analyze_source(timestamped_transcript(transcript), source_name)
 
-    # Optional full transcript translation; independent of both summaries and analysis.
     translation = ""
     if cfg.translate_transcript:
         translation = provider.translate(
@@ -83,9 +92,12 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     tier, advice = model_advice(cfg.ollama_model)
     metadata = {
         "source": source,
+        "input_media_sha256": media_hash,
         "language": transcript.language,
         "asr_backend": transcript.backend,
         "asr_model": transcript.model,
+        "word_timestamps": cfg.word_timestamps,
+        "hotwords": cfg.hotwords,
         "text_provider": "ollama",
         "text_model": cfg.ollama_model,
         "ollama_model_advice": {"tier": tier, "note": advice},
