@@ -1,5 +1,6 @@
 param(
-  [string]$Media = "",
+  [Parameter(Mandatory=$true)]
+  [string]$Media,
   [string]$OllamaModel = ""
 )
 
@@ -9,24 +10,7 @@ Set-Location $PSScriptRoot
 Write-Host "=== SS TRANSCRIBE-TRANSLATE REAL LOCAL VERIFICATION ===" -ForegroundColor Cyan
 Write-Host "Application directory: $PSScriptRoot"
 
-if (-not $Media) {
-  $roots = @(
-    [Environment]::GetFolderPath("MyDocuments"),
-    [Environment]::GetFolderPath("MyVideos"),
-    [Environment]::GetFolderPath("MyMusic"),
-    [Environment]::GetFolderPath("Desktop"),
-    [Environment]::GetFolderPath("UserProfile") + "/Downloads"
-  ) | Where-Object { $_ -and (Test-Path $_) }
-
-  $extensions = @(".wav",".mp3",".m4a",".mp4",".mkv",".mov",".avi",".webm",".m4v",".flac",".ogg")
-  $candidates = foreach ($root in $roots) {
-    Get-ChildItem $root -Recurse -File -Force -ErrorAction SilentlyContinue |
-      Where-Object { $extensions -contains $_.Extension.ToLowerInvariant() }
-  }
-  $Media = ($candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-  if (-not $Media) { throw "No test media was supplied and no supported media file was found in Documents, Videos, Music, Desktop or Downloads." }
-  Write-Host "Auto-selected newest test media: $Media" -ForegroundColor Yellow
-}
+Write-Host "This verifier requires an explicit user-selected recording; it will not select browser caches or arbitrary newest files." -ForegroundColor Yellow
 
 $mediaPath = (Resolve-Path -LiteralPath $Media -ErrorAction Stop).Path
 Write-Host "Media: $mediaPath"
