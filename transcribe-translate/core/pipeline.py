@@ -54,6 +54,9 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
     ).transcribe(audio)
 
+    if not transcript.segments or not transcript.text.strip():
+        raise RuntimeError("Pipeline safety check: source transcript is empty; downstream AI stages will not run.")
+
     diarization_used = False
     if cfg.diarization:
         diarization_segments = diarize_audio(
@@ -70,7 +73,11 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
 
     provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
     source_summary = provider.summarize_source(transcript.text, source_name)
+    if not source_summary.strip():
+        raise RuntimeError("Source-language summary returned empty; job stopped.")
     english_summary = provider.translate_summary_to_english(source_summary, source_name)
+    if not english_summary.strip():
+        raise RuntimeError("English summary translation returned empty; job stopped.")
 
     timestamped = timestamped_transcript(transcript)
     analysis_source = ""
