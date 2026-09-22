@@ -112,7 +112,22 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
             result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
         except subprocess.CalledProcessError as exc:
             detail = (exc.stderr or exc.stdout or "").strip()
-            raise RuntimeError("yt-dlp failed. " + detail[-4000:]) from exc
+            progress("Primary YouTube format download failed; retrying with a single progressive format.")
+            fallback = [
+                *ytdlp_command, "--no-playlist", "--no-warnings",
+                "-f", "b[ext=mp4]/b",
+                "--ffmpeg-location", str(Path(ffmpeg).parent),
+                "--print", "after_move:filepath",
+                "-o", str(output), source,
+            ]
+            try:
+                result = subprocess.run(fallback, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            except subprocess.CalledProcessError as fallback_exc:
+                fallback_detail = (fallback_exc.stderr or fallback_exc.stdout or "").strip()
+                raise RuntimeError(
+                    "yt-dlp failed for both normal and progressive YouTube formats. "
+                    + (fallback_detail or detail)[-5000:]
+                ) from fallback_exc
         printed = [Path(line.strip().strip('"')) for line in result.stdout.splitlines() if line.strip()]
         media = next((p for p in reversed(printed) if p.is_file() and p.suffix.lower() in VIDEO_EXTS), None)
         if media is None:
