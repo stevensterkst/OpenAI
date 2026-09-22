@@ -10,6 +10,8 @@ from .diarization import assign_speakers, diarize_audio
 from .media import extract_audio, prepare_media, is_url
 from .outputs import write_outputs
 from .search import build_search_report
+from .library import index_job
+from .player import write_player
 from .text import OllamaTextProvider, model_advice
 
 LANGUAGE_NAMES = {
@@ -125,5 +127,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         "api_cost": "0: no OpenAI API calls are made by this application",
     }
     (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_player(job_dir, media, job_dir / "original.json")
+    index_job(job_dir, output_root)
     progress(f"COMPLETE: {job_dir}")
     return job_dir
