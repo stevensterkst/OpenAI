@@ -39,6 +39,15 @@ class FasterWhisperASR:
         self.word_timestamps = word_timestamps
         self.progress = progress
 
+    def _run(self, model, audio: Path, language, vad_filter: bool):
+        kwargs = {
+            "language": language, "beam_size": 5, "vad_filter": vad_filter,
+            "condition_on_previous_text": True, "word_timestamps": self.word_timestamps,
+        }
+        if self.hotwords:
+            kwargs["hotwords"] = self.hotwords
+        return model.transcribe(str(audio), **kwargs)
+
     def transcribe(self, audio: Path) -> Transcript:
         try:
             from faster_whisper import WhisperModel
@@ -57,14 +66,11 @@ class FasterWhisperASR:
             self.progress(f"Vocabulary bias enabled: {self.hotwords}")
 
         model = WhisperModel(self.model_name, device="cpu", compute_type=self.compute_type)
-        kwargs = {
-            "language": language, "beam_size": 5, "vad_filter": True,
-            "condition_on_previous_text": True, "word_timestamps": self.word_timestamps,
-        }
-        if self.hotwords:
-            kwargs["hotwords"] = self.hotwords
 
-        segments, info = model.transcribe(str(audio), **kwargs)
+        # First pass uses VAD for normal recordings. A zero-segment result is not
+        # accepted as a valid transcript: retry once without VAD because very short,
+        # quiet, compressed or unusual recordings can be rejected by the VAD stage.
+        segments, info = self._run(model, audio, language, vad_filter=True)
         collected: list[Segment] = []
         for segment in segments:
             text = segment.text.strip()
@@ -77,15 +83,35 @@ class FasterWhisperASR:
                          float(w.probability) if getattr(w, "probability", None) is not None else None)
                     for w in segment.words
                 ]
-            collected.append(Segment(
-                float(segment.start), float(segment.end), text, words=words
-            ))
+            collected.append(Segment(float(segment.start), float(segment.end), text, words=words))
+
+        if not collected:
+            self.progress("No speech segments survived VAD; retrying transcription with VAD disabled.")
+            segments, info = self._run(model, audio, language, vad_filter=False)
+            for segment in segments:
+                text = segment.text.strip()
+                if not text:
+                    continue
+                words = None
+                if self.word_timestamps and getattr(segment, "words", None):
+                    words = [
+                        Word(float(w.start), float(w.end), str(w.word),
+                             float(w.probability) if getattr(w, "probability", None) is not None else None)
+                        for w in segment.words
+                    ]
+                collected.append(Segment(float(segment.start), float(segment.end), text, words=words))
 
         detected = getattr(info, "language", None) or language
+        if not collected:
+            raise RuntimeError(
+                "Local transcription produced zero speech segments after both normal VAD "
+                "and the no-VAD retry. No summary or translation was generated because the "
+                "source transcript is empty. Check the recording/audio track or choose another test file."
+            )
+
         return Transcript(
-            text="\n".join(s.text for s in collected),
-            segments=collected, language=detected,
-            backend="faster-whisper", model=self.model_name,
+            text="\n".join(s.text for s in collected), segments=collected,
+            language=detected, backend="faster-whisper", model=self.model_name,
         )
 
 def transcript_dict(transcript: Transcript) -> dict:
