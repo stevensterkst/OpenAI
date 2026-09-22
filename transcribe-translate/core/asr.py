@@ -31,7 +31,7 @@ Progress = Callable[[str], None]
 class FasterWhisperASR:
     # Bound the decoded WAV passed to faster-whisper. Long recordings can otherwise
     # trigger multi-GB NumPy STFT allocations before inference starts.
-    CHUNK_SECONDS = 300
+    CHUNK_SECONDS = 30
 
     def __init__(self, model: str, language: str, compute_type: str,
                  hotwords: str = "", word_timestamps: bool = True,
