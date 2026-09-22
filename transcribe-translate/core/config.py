@@ -34,6 +34,13 @@ class AppConfig:
 def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
     path = path or (ROOT / "config.local.json")
     payload = {
+        "asr": {
+            "local_model": config.local_model,
+            "language": config.language,
+            "compute_type": config.compute_type,
+            "word_timestamps": config.word_timestamps,
+            "hotwords": config.hotwords,
+        },
         "text": {
             "ollama_model": config.ollama_model,
             "analysis_language": config.analysis_language,
