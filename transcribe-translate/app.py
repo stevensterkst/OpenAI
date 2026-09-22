@@ -6,7 +6,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from core.config import ROOT, load_config, save_local_config
-from core.media import find_ytdlp, is_url
+from core.media import find_ytdlp_command, is_url
 from core.pipeline import run_job
 from core.text import OllamaTextProvider, model_advice
 
@@ -41,6 +41,7 @@ class App(tk.Tk):
         self.advice = tk.StringVar(value="")
         self._build()
         self.refresh_ollama()
+        self.detect_ytdlp()
 
     def _build(self):
         root = ttk.Frame(self, padding=16); root.pack(fill="both", expand=True)
@@ -156,12 +157,16 @@ class App(tk.Tk):
 
     def detect_ytdlp(self):
         try:
-            path=find_ytdlp(self.ytdlp_path.get().strip())
-            self.ytdlp_path.set(path)
-            self.logmsg("yt-dlp found: " + path)
-            return path
+            command=find_ytdlp_command(self.ytdlp_path.get().strip(), self.logmsg)
+            if len(command) == 1:
+                self.ytdlp_path.set(command[0])
+                self.logmsg("yt-dlp found: " + command[0])
+            else:
+                self.ytdlp_path.set("Python package (existing local yt-dlp)")
+            return command
         except FileNotFoundError:
-            return ""
+            self.logmsg("No yt-dlp executable/package was found automatically.")
+            return []
 
     def logmsg(self,msg):
         self.after(0,lambda:(self.log.insert("end",msg+"\n"),self.log.see("end"),self.status.set(msg[:150])))
@@ -174,17 +179,17 @@ class App(tk.Tk):
         cfg.language=self.language.get().strip() or "auto"; cfg.local_model=self.model.get(); cfg.ollama_model=model
         cfg.ytdlp_path=self.ytdlp_path.get().strip()
         if is_url(source):
-            if not self.detect_ytdlp():
+            command = self.detect_ytdlp()
+            if not command:
                 path=filedialog.askopenfilename(
                     title="Select your existing standalone yt-dlp.exe",
                     filetypes=[("yt-dlp executable","yt-dlp.exe"),("Executable","*.exe"),("All files","*.*")]
                 )
                 if not path:
-                    messagebox.showerror("yt-dlp required","YouTube input requires your existing standalone yt-dlp.exe. No executable was selected; nothing was installed or changed.")
+                    messagebox.showerror("yt-dlp required","No existing yt-dlp executable or Python package was found. Select your existing standalone yt-dlp.exe; the app will not install or modify it.")
                     return
-                self.ytdlp_path.set(path); cfg.ytdlp_path=path
-            else:
-                cfg.ytdlp_path=self.ytdlp_path.get().strip()
+                self.ytdlp_path.set(path)
+            cfg.ytdlp_path=self.ytdlp_path.get().strip()
         cfg.hotwords=self.hotwords.get().strip(); cfg.word_timestamps=self.word_timestamps.get()
         cfg.analysis_language=self.analysis_language.get().strip() or "source"
         cfg.search_query=self.search_query.get().strip(); cfg.top_terms=max(5,int(self.top_terms.get()))
