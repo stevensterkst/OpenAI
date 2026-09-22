@@ -1,3 +1,4 @@
-.env
+config.local.json
 output/
-tools/yt-dlp.exe
+__pycache__/
+*.pyc
