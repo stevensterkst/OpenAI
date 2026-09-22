@@ -25,9 +25,9 @@ def chunk_text(text: str, size: int = 10000) -> list[str]:
     return parts
 
 MODEL_HINTS = {
-    "phi4-mini": ("precision", "Strongest of the currently known local choices for careful translation/analysis; slower."),
-    "qwen3": ("balanced", "Good multilingual/speed compromise; usually much faster than the larger Phi model."),
-    "llama3.2": ("fast", "Small and fast; useful when turnaround matters more than maximum translation precision."),
+    "phi4-mini": ("precision", "Best starting choice among the four currently reported PC models for careful translation/analysis; expect slower CPU generation."),
+    "qwen3": ("balanced", "Good speed/multilingual compromise; use when Phi is too slow."),
+    "llama3.2": ("fast", "Small and fast; useful when turnaround matters more than maximum text precision."),
     "gemma3": ("fast", "Small and fast; useful for quick summaries and lightweight translation."),
 }
 
@@ -36,7 +36,7 @@ def model_advice(model: str) -> tuple[str, str]:
     for key, value in MODEL_HINTS.items():
         if key in name:
             return value
-    return ("unknown", "No preset recommendation; benchmark this model on your material before relying on it.")
+    return ("unknown", "No preset recommendation; benchmark this installed model on your material before relying on it.")
 
 class OllamaTextProvider:
     def __init__(self, url: str, model: str, progress: Progress = print):
@@ -80,6 +80,40 @@ class OllamaTextProvider:
             "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
             "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n"
             f"{transcript}"
+        )
+
+    def analyze_source(self, timestamped_transcript: str, source_language: str) -> str:
+        self.progress(f"Source-grounded meeting/evidence analysis: {source_language} [{self.model}]")
+        return self._call(
+            f"""Analyse the following timestamped {source_language} transcript in {source_language}.
+This is a SOURCE-GROUNDED ANALYSIS layer, not a replacement for the transcript or primary summary.
+
+Produce clear Markdown with these sections:
+1. Executive overview
+2. Topic timeline (use available timestamps)
+3. People/speakers mentioned or identifiable from the transcript itself
+4. Motions, proposals and alternatives
+5. Decisions and agenda status
+6. Votes and stated voting positions
+7. Questions, objections and unresolved issues
+8. Action items and deadlines
+9. Evidence matrix: claim/event, supporting transcript evidence or timestamp, and confidence/limitation
+10. Procedural or governance issues that are explicitly evidenced, with the exact evidence needed to support each flag
+11. Legal/governance review points — factual issues for further human review, not legal conclusions
+12. Contradictions or internal inconsistencies in the transcript
+13. Knowledge-management tags / key entities
+
+Rules:
+- Use ONLY the transcript.
+- Never invent a speaker, vote, motive, legal conclusion, procedural breach, date, amount or decision.
+- Distinguish what was explicitly said from an analytical flag.
+- If evidence is insufficient, say so.
+- Do not turn uncertainty into certainty.
+- Preserve names, numbers, dates and wording of votes/proposals as accurately as possible.
+- Do not claim speaker diarization: only identify speakers where the transcript itself provides evidence.
+
+TRANSCRIPT:
+{timestamped_transcript}"""
         )
 
     def translate(self, text: str, target_language: str, purpose: str = "transcript") -> str:
