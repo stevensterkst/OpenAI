@@ -55,12 +55,8 @@ class OllamaTextProvider:
     def _call(self, prompt: str) -> str:
         response = requests.post(
             f"{self.url}/api/chat",
-            json={
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "options": {"temperature": 0},
-            },
+            json={"model": self.model, "messages": [{"role": "user", "content": prompt}],
+                  "stream": False, "options": {"temperature": 0}},
             timeout=3600,
         )
         if response.status_code >= 400:
@@ -70,50 +66,66 @@ class OllamaTextProvider:
             raise RuntimeError("Ollama returned an empty response.")
         return content
 
-    def summarize_source(self, transcript: str, source_language: str) -> str:
-        self.progress(f"Source-language summary: {source_language} [{self.model}]")
+    def _source_chunk_summary(self, chunk: str, source_language: str, index: int, total: int) -> str:
+        self.progress(f"Source-summary chunk {index}/{total} [{self.model}]")
         return self._call(
-            f"Produce a comprehensive summary in {source_language} of the transcript below. "
-            "This is the PRIMARY summary. Base it only on the transcript. Preserve all material facts, "
-            "important arguments, decisions, proposals, objections, questions, named people or organisations, "
-            "dates, amounts, conditions, votes or voting positions when stated, action items, deadlines, "
-            "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
-            "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n"
-            f"{transcript}"
+            f"Summarize this portion of a {source_language} transcript in {source_language}. "
+            "Keep every material fact, argument, proposal, decision, objection, question, name, "
+            "date, amount, condition, vote, action item, deadline, uncertainty and unresolved issue "
+            "that occurs in this portion. Do not invent or infer. This is an intermediate source-language "
+            "summary and will be consolidated later.\n\n" + chunk
+        )
+
+    def summarize_source(self, transcript: str, source_language: str) -> str:
+        parts = chunk_text(transcript)
+        if len(parts) == 1:
+            self.progress(f"Source-language summary: {source_language} [{self.model}]")
+            return self._call(
+                f"Produce a comprehensive summary in {source_language} of the transcript below. "
+                "This is the PRIMARY summary. Base it only on the transcript. Preserve all material facts, "
+                "important arguments, decisions, proposals, objections, questions, named people or organisations, "
+                "dates, amounts, conditions, votes or voting positions when stated, action items, deadlines, "
+                "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
+                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n{transcript}"
+            )
+        summaries = [
+            self._source_chunk_summary(part, source_language, i, len(parts))
+            for i, part in enumerate(parts, 1)
+        ]
+        self.progress(f"Consolidating {len(summaries)} source-summary chunks [{self.model}]")
+        return self._call(
+            f"Consolidate these intermediate summaries into one comprehensive summary in {source_language}. "
+            "Use only their contents. Preserve material facts, arguments, decisions, proposals, objections, "
+            "questions, names, dates, amounts, conditions, votes, action items, deadlines, uncertainties and "
+            "unresolved issues. Do not invent, infer or silently omit. Remove duplication while retaining distinct "
+            "facts.\n\n" + "\n\n---\n\n".join(summaries)
         )
 
     def analyze_source(self, timestamped_transcript: str, source_language: str) -> str:
-        self.progress(f"Source-grounded meeting/evidence analysis: {source_language} [{self.model}]")
-        return self._call(
-            f"""Analyse the following timestamped {source_language} transcript in {source_language}.
-This is a SOURCE-GROUNDED ANALYSIS layer, not a replacement for the transcript or primary summary.
-
-Produce clear Markdown with these sections:
-1. Executive overview
-2. Topic timeline (use available timestamps)
-3. People/speakers mentioned or identifiable from the transcript itself
-4. Motions, proposals and alternatives
-5. Decisions and agenda status
-6. Votes and stated voting positions
-7. Questions, objections and unresolved issues
-8. Action items and deadlines
-9. Evidence matrix: claim/event, supporting transcript evidence or timestamp, and confidence/limitation
-10. Procedural or governance issues that are explicitly evidenced, with the exact evidence needed to support each flag
-11. Legal/governance review points — factual issues for further human review, not legal conclusions
-12. Contradictions or internal inconsistencies in the transcript
-13. Knowledge-management tags / key entities
-
-Rules:
-- Use ONLY the transcript.
-- Never invent a speaker, vote, motive, legal conclusion, procedural breach, date, amount or decision.
-- Distinguish what was explicitly said from an analytical flag.
-- If evidence is insufficient, say so.
-- Do not turn uncertainty into certainty.
-- Preserve names, numbers, dates and wording of votes/proposals as accurately as possible.
-- Do not claim speaker diarization: only identify speakers where the transcript itself provides evidence.
+        parts = chunk_text(timestamped_transcript, size=9000)
+        analyses = []
+        for i, part in enumerate(parts, 1):
+            self.progress(f"Source-grounded analysis chunk {i}/{len(parts)} [{self.model}]")
+            analyses.append(self._call(
+                f"""Analyse this portion of a timestamped {source_language} transcript in {source_language}.
+Extract only evidence explicitly present here: topics/timeline, people mentioned, proposals, decisions,
+votes, questions/objections, unresolved issues, action items/deadlines, evidence, procedural/governance
+review points, contradictions and knowledge-management entities. Preserve timestamps. Never invent.
+Mark insufficient evidence. This is an intermediate analysis, not a legal conclusion.
 
 TRANSCRIPT:
-{timestamped_transcript}"""
+{part}"""
+            ))
+        self.progress(f"Consolidating source-grounded analysis [{self.model}]")
+        return self._call(
+            f"""Consolidate the following source-grounded analyses in {source_language}.
+Produce Markdown sections: Executive overview; Topic timeline; People/speakers evidenced by transcript;
+Motions/proposals; Decisions; Votes/stated positions; Questions/objections/unresolved issues; Action
+items/deadlines; Evidence matrix with timestamps; Procedural/governance review points; Legal/governance
+issues for human review (not conclusions); Contradictions; Knowledge-management tags/entities.
+Use only the supplied analyses. Do not invent or turn uncertainty into certainty.
+
+{chr(10).join(analyses)}"""
         )
 
     def translate(self, text: str, target_language: str, purpose: str = "transcript") -> str:
@@ -122,10 +134,9 @@ TRANSCRIPT:
         for index, part in enumerate(parts, 1):
             self.progress(f"Local {purpose} translation: part {index}/{len(parts)} -> {target_language} [{self.model}]")
             outputs.append(self._call(
-                f"Translate this {purpose} faithfully into {target_language}. "
-                "Do not summarize. Preserve names, numbers, dates, legal/voting terminology, "
-                "uncertainty, negation, speaker meaning and all substantive details. Do not add commentary.\n\n"
-                f"{part}"
+                f"Translate this {purpose} faithfully into {target_language}. Do not summarize. Preserve names, "
+                "numbers, dates, legal/voting terminology, uncertainty, negation, speaker meaning and all "
+                "substantive details. Do not add commentary.\n\n" + part
             ))
         return "\n\n".join(outputs)
 
