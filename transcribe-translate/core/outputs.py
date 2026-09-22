@@ -49,7 +49,7 @@ def write_outputs(
         (directory / "translation.txt").write_text(translation + "\n", encoding="utf-8")
 
     payload = {
-        "source": source, "language": transcript.language, "backend": transcript.backend,
+        "source": source, "language": transcript.language, "backend": transcript.backend, "text": transcript.text,
         "model": transcript.model, "word_timestamps": any(bool(s.words) for s in transcript.segments),
         "speaker_labels": any(bool(s.speaker) for s in transcript.segments),
         "segments": [asdict(s) for s in transcript.segments],
