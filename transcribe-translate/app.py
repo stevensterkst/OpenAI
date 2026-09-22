@@ -5,6 +5,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 import webbrowser
+import traceback
 
 from core.config import ROOT, load_config, save_local_config
 from core.media import find_ytdlp_command, is_url
@@ -391,4 +392,15 @@ class App(tk.Tk):
         path=Path(self.output.get()); path.mkdir(parents=True,exist_ok=True); os.startfile(path)
 
 if __name__=="__main__":
-    App().mainloop()
+    try:
+        App().mainloop()
+    except Exception:
+        logdir=ROOT/"logs"; logdir.mkdir(parents=True,exist_ok=True)
+        (logdir/"app-crash.log").write_text(traceback.format_exc(),encoding="utf-8")
+        try:
+            messagebox.showerror("SS Transcribe-Translate failed",
+                "The application failed during startup.\n\n"
+                "Full traceback saved to:\n"+str(logdir/"app-crash.log"))
+        except Exception:
+            pass
+        raise
