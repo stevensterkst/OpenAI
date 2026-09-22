@@ -11,6 +11,8 @@ class AppConfig:
     local_model: str = "small"
     language: str = "auto"
     compute_type: str = "int8"
+    word_timestamps: bool = True
+    hotwords: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
     target_language: str = "English"
@@ -31,6 +33,8 @@ def load_config(path: Path | None = None) -> AppConfig:
         local_model=asr.get("local_model", "small"),
         language=asr.get("language", "auto"),
         compute_type=asr.get("compute_type", "int8"),
+        word_timestamps=bool(asr.get("word_timestamps", True)),
+        hotwords=str(asr.get("hotwords", "")),
         ollama_url=text.get("ollama_url", "http://127.0.0.1:11434"),
         ollama_model=text.get("ollama_model", ""),
         target_language=text.get("target_language", "English"),
