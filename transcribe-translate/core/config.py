@@ -15,6 +15,7 @@ class AppConfig:
     ollama_model: str = ""
     target_language: str = "English"
     translate_transcript: bool = False
+    analysis: bool = True
     output_dir: str = "output"
     ytdlp_path: str = ""
 
@@ -34,6 +35,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         ollama_model=text.get("ollama_model", ""),
         target_language=text.get("target_language", "English"),
         translate_transcript=bool(text.get("translate_transcript", False)),
+        analysis=bool(text.get("analysis", True)),
         output_dir=paths.get("output_dir", "output"),
         ytdlp_path=paths.get("ytdlp_path", ""),
     )
