@@ -23,7 +23,9 @@ def search_transcript(transcript: Transcript, query: str) -> list[dict]:
 
 def top_terms(transcript: Transcript, limit: int = 30) -> list[dict]:
     text = transcript.text.casefold()
-    words = re.findall(r"[\wÀ-ÖØ-öø-ÿĀ-žЀ-ӿ一-龯ぁ-ゔァ-ヴー]{3,}", text, flags=re.UNICODE)
+    # Unicode-letter tokenisation: do not restrict analysis to Latin/Cyrillic/CJK only.
+    # This covers Arabic, Hebrew, Greek, Korean and other Unicode scripts without another dependency.
+    words = re.findall(r"[^\W\d_]{3,}", text, flags=re.UNICODE)
     counts = Counter(w for w in words if w not in STOPWORDS and not w.isdigit())
     return [{"term": term, "count": count} for term, count in counts.most_common(max(1, limit))]
 
