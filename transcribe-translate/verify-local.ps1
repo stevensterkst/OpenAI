@@ -12,7 +12,7 @@ Write-Host "Application directory: $PSScriptRoot"
 Write-Host "Media: $Media"
 if (-not (Test-Path $Media -PathType Leaf)) { throw "Media file does not exist: $Media" }
 
-python -c "import faster_whisper, ctranslate2, requests; print('Python packages: OK'); print('faster-whisper', getattr(faster_whisper,'__version__','installed')); print('ctranslate2', getattr(ctranslate2,'__version__','installed'))"
+python -c 'import faster_whisper, ctranslate2, requests; print("Python packages: OK"); print("faster-whisper", getattr(faster_whisper,"__version__","installed")); print("ctranslate2", getattr(ctranslate2,"__version__","installed"))'
 
 $ff = Get-Command ffmpeg -ErrorAction SilentlyContinue
 if (-not $ff) { throw "FFmpeg is not on PATH." }
@@ -55,9 +55,24 @@ Write-Host "Architecture checks: PASS" -ForegroundColor Green
 
 $out = Join-Path $PSScriptRoot "output"
 $env:SS_VERIFY_OLLAMA_MODEL = $chosen
+$mediaForPython = $Media.Replace("","\")
+$outForPython = $out.Replace("","\")
 
 Write-Host "Starting REAL end-to-end local job. No OpenAI API is used." -ForegroundColor Cyan
-python -c "import os,sys; sys.path.insert(0,'.'); from pathlib import Path; from core.config import load_config; from core.pipeline import run_job; cfg=load_config(); cfg.ollama_model=os.environ['SS_VERIFY_OLLAMA_MODEL']; cfg.analysis=True; cfg.word_timestamps=True; p=run_job(r'''$Media''', cfg, Path(r'''$out'''), print); print('JOB_OUTPUT='+str(p))"
+$py = @"
+import os,sys
+from pathlib import Path
+sys.path.insert(0,".")
+from core.config import load_config
+from core.pipeline import run_job
+cfg=load_config()
+cfg.ollama_model=os.environ["SS_VERIFY_OLLAMA_MODEL"]
+cfg.analysis=True
+cfg.word_timestamps=True
+p=run_job(r"""$mediaForPython""", cfg, Path(r"""$outForPython"""), print)
+print("JOB_OUTPUT="+str(p))
+"@
+$py | python -
 
 $latest = Get-ChildItem $out -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $latest) { throw "No output directory was created." }
