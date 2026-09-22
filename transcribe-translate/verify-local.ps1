@@ -10,47 +10,47 @@ Set-Location $PSScriptRoot
 Write-Host "=== SS Transcribe-Translate — REAL LOCAL VERIFICATION ===" -ForegroundColor Cyan
 Write-Host "Application directory: $PSScriptRoot"
 Write-Host "Media: $Media"
-
 if (-not (Test-Path $Media -PathType Leaf)) { throw "Media file does not exist: $Media" }
 
 python -c "import faster_whisper, ctranslate2, requests; print('Python packages: OK'); print('faster-whisper', getattr(faster_whisper,'__version__','installed')); print('ctranslate2', getattr(ctranslate2,'__version__','installed'))"
 
 $ff = Get-Command ffmpeg -ErrorAction SilentlyContinue
-if (-not $ff) { throw "FFmpeg is not on PATH. Configure PATH or use the application's existing FFmpeg path before testing." }
+if (-not $ff) { throw "FFmpeg is not on PATH." }
 Write-Host "FFmpeg: $($ff.Source)" -ForegroundColor Green
 
 $ollama = Invoke-RestMethod "http://127.0.0.1:11434/api/tags"
 $models = @($ollama.models | ForEach-Object { $_.name })
 if ($models.Count -eq 0) { throw "Ollama is reachable but reports no installed models." }
 Write-Host "Ollama models: $($models -join ', ')" -ForegroundColor Green
-
-if ($OllamaModel) {
-  if ($models -notcontains $OllamaModel) { throw "Requested Ollama model is not installed: $OllamaModel" }
-  $chosen = $OllamaModel
-} else {
-  throw "Choose the exact Ollama model for this verification with -OllamaModel. The application does not designate Phi, Qwen, Llama or Gemma as a hidden default."
-}
+if (-not $OllamaModel) { throw "Choose the exact Ollama model with -OllamaModel. No model is a hidden application default." }
+if ($models -notcontains $OllamaModel) { throw "Requested Ollama model is not installed: $OllamaModel" }
+$chosen = $OllamaModel
 Write-Host "Verification Ollama model: $chosen" -ForegroundColor Green
 
 $requiredFiles = @(
-  "core\asr.py","core\config.py","core\text.py","core\pipeline.py","core\outputs.py","core\media.py","app.py"
+  "core\asr.py","core\config.py","core\text.py","core\pipeline.py",
+  "core\outputs.py","core\media.py","core\search.py","core\diarization.py","app.py"
 )
-foreach($name in $requiredFiles) {
-  if (-not (Test-Path $name)) { throw "Missing application file: $name" }
-}
+foreach($name in $requiredFiles) { if (-not (Test-Path $name)) { throw "Missing application file: $name" } }
 
 $source = Get-Content ".\core\pipeline.py" -Raw
 $asr = Get-Content ".\core\asr.py" -Raw
 $gui = Get-Content ".\app.py" -Raw
 $text = Get-Content ".\core\text.py" -Raw
+$diar = Get-Content ".\core\diarization.py" -Raw
+
 if ($source -notmatch 'no OpenAI API calls') { throw "Zero-OpenAI runtime assertion missing." }
 if ($source -notmatch 'source_summary') { throw "Source-summary stage missing." }
 if ($source -notmatch 'translate_summary_to_english') { throw "English-summary translation stage missing." }
 if ($asr -notmatch 'word_timestamps') { throw "Word timestamp support missing." }
 if ($asr -notmatch 'hotwords') { throw "Hotword support missing." }
 if ($gui -notmatch 'Vocabulary / names') { throw "Vocabulary GUI control missing." }
-if ($gui -notmatch 'Keep word-level timestamps') { throw "Word timestamp GUI control missing." }
+if ($gui -notmatch 'Search transcript') { throw "Search GUI control missing." }
+if ($gui -notmatch 'Transcript-grounded Q&A') { throw "Q&A GUI control missing." }
+if ($gui -notmatch 'Enable speaker diarization') { throw "Diarization GUI control missing." }
+if ($text -notmatch 'ask_transcript') { throw "Transcript Q&A backend missing." }
 if ($text -notmatch 'chunk_text') { throw "Long-form chunking missing." }
+if ($diar -notmatch 'OfflineSpeakerDiarization') { throw "Offline ONNX diarization backend missing." }
 Write-Host "Architecture checks: PASS" -ForegroundColor Green
 
 $out = Join-Path $PSScriptRoot "output"
@@ -62,7 +62,7 @@ python -c "import os,sys; sys.path.insert(0,'.'); from pathlib import Path; from
 $latest = Get-ChildItem $out -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $latest) { throw "No output directory was created." }
 
-$expected = @("original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md","analysis.md","job.json","output_manifest.json")
+$expected = @("original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md","analysis_source.md","analysis.md","search_report.json","job.json","output_manifest.json")
 foreach($name in $expected) {
   $p = Join-Path $latest.FullName $name
   if (-not (Test-Path $p)) { throw "Missing expected output: $name" }
