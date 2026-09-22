@@ -86,12 +86,11 @@ class OllamaTextProvider:
                 "important arguments, decisions, proposals, objections, questions, named people or organisations, "
                 "dates, amounts, conditions, votes or voting positions when stated, action items, deadlines, "
                 "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
-                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n{transcript}"
+                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n"
+                + transcript
             )
-        summaries = [
-            self._source_chunk_summary(part, source_language, i, len(parts))
-            for i, part in enumerate(parts, 1)
-        ]
+        summaries = [self._source_chunk_summary(part, source_language, i, len(parts))
+                     for i, part in enumerate(parts, 1)]
         self.progress(f"Consolidating {len(summaries)} source-summary chunks [{self.model}]")
         return self._call(
             f"Consolidate these intermediate summaries into one comprehensive summary in {source_language}. "
