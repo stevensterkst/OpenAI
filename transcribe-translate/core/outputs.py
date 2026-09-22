@@ -16,6 +16,9 @@ def _ts(seconds: float, comma: bool = True) -> str:
     sep = "," if comma else "."
     return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
 
+def _body(segment) -> str:
+    return f"[{segment.speaker}] {segment.text}" if segment.speaker else segment.text
+
 def write_outputs(
     transcript: Transcript, translation: str, source_summary: str,
     english_summary: str, analysis_source: str, analysis_translated: str,
@@ -24,7 +27,9 @@ def write_outputs(
     analysis_created: bool = False, analysis_language: str = "source",
 ) -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "original.txt").write_text(transcript.text + "\n", encoding="utf-8")
+    (directory / "original.txt").write_text(
+        "\n".join(_body(s) for s in transcript.segments) + "\n", encoding="utf-8"
+    )
     (directory / "source_summary.md").write_text(
         f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n",
         encoding="utf-8")
@@ -47,7 +52,6 @@ def write_outputs(
 
     (directory / "search_report.json").write_text(
         json.dumps(search_report, ensure_ascii=False, indent=2), encoding="utf-8")
-
     if translated:
         (directory / "translation.txt").write_text(translation + "\n", encoding="utf-8")
 
@@ -55,6 +59,7 @@ def write_outputs(
         "source": source, "language": transcript.language,
         "backend": transcript.backend, "model": transcript.model,
         "word_timestamps": any(bool(s.words) for s in transcript.segments),
+        "speaker_labels": any(bool(s.speaker) for s in transcript.segments),
         "segments": [asdict(s) for s in transcript.segments],
     }
     (directory / "original.json").write_text(
@@ -63,7 +68,7 @@ def write_outputs(
     srt: list[str] = []
     vtt: list[str] = ["WEBVTT", ""]
     for i, segment in enumerate(transcript.segments, 1):
-        body = segment.text
+        body = _body(segment)
         srt.extend([str(i), f"{_ts(segment.start)} --> {_ts(segment.end)}", body, ""])
         vtt.extend([f"{_ts(segment.start, False)} --> {_ts(segment.end, False)}", body, ""])
     (directory / "original.srt").write_text("\n".join(srt), encoding="utf-8")
@@ -76,6 +81,7 @@ def write_outputs(
         "analysis_language": analysis_language if analysis_created else None,
         "search_report_created": True,
         "word_timestamps_available": any(bool(s.words) for s in transcript.segments),
+        "speaker_labels_available": any(bool(s.speaker) for s in transcript.segments),
         "primary_outputs": [
             "original.txt", "original.json", "original.srt", "original.vtt",
             "source_summary.md", "english_summary.md"
