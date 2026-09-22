@@ -16,6 +16,7 @@ class Segment:
     end: float
     text: str
     words: list[Word] | None = None
+    speaker: str | None = None
 
 @dataclass
 class Transcript:
@@ -28,15 +29,9 @@ class Transcript:
 Progress = Callable[[str], None]
 
 class FasterWhisperASR:
-    def __init__(
-        self,
-        model: str,
-        language: str,
-        compute_type: str,
-        hotwords: str = "",
-        word_timestamps: bool = True,
-        progress: Progress = print,
-    ):
+    def __init__(self, model: str, language: str, compute_type: str,
+                 hotwords: str = "", word_timestamps: bool = True,
+                 progress: Progress = print):
         self.model_name = model
         self.language = language
         self.compute_type = compute_type
@@ -63,64 +58,39 @@ class FasterWhisperASR:
 
         model = WhisperModel(self.model_name, device="cpu", compute_type=self.compute_type)
         kwargs = {
-            "language": language,
-            "beam_size": 5,
-            "vad_filter": True,
-            "condition_on_previous_text": True,
-            "word_timestamps": self.word_timestamps,
+            "language": language, "beam_size": 5, "vad_filter": True,
+            "condition_on_previous_text": True, "word_timestamps": self.word_timestamps,
         }
         if self.hotwords:
             kwargs["hotwords"] = self.hotwords
 
         segments, info = model.transcribe(str(audio), **kwargs)
         collected: list[Segment] = []
-
         for segment in segments:
             text = segment.text.strip()
             if not text:
                 continue
-
             words = None
             if self.word_timestamps and getattr(segment, "words", None):
-                words = []
-                for word in segment.words:
-                    words.append(
-                        Word(
-                            start=float(word.start),
-                            end=float(word.end),
-                            word=str(word.word),
-                            probability=(
-                                float(word.probability)
-                                if getattr(word, "probability", None) is not None
-                                else None
-                            ),
-                        )
-                    )
-
-            collected.append(
-                Segment(
-                    start=float(segment.start),
-                    end=float(segment.end),
-                    text=text,
-                    words=words,
-                )
-            )
+                words = [
+                    Word(float(w.start), float(w.end), str(w.word),
+                         float(w.probability) if getattr(w, "probability", None) is not None else None)
+                    for w in segment.words
+                ]
+            collected.append(Segment(
+                float(segment.start), float(segment.end), text, words=words
+            ))
 
         detected = getattr(info, "language", None) or language
-        text = "\n".join(s.text for s in collected)
         return Transcript(
-            text=text,
-            segments=collected,
-            language=detected,
-            backend="faster-whisper",
-            model=self.model_name,
+            text="\n".join(s.text for s in collected),
+            segments=collected, language=detected,
+            backend="faster-whisper", model=self.model_name,
         )
 
 def transcript_dict(transcript: Transcript) -> dict:
     return {
-        "text": transcript.text,
-        "language": transcript.language,
-        "backend": transcript.backend,
-        "model": transcript.model,
+        "text": transcript.text, "language": transcript.language,
+        "backend": transcript.backend, "model": transcript.model,
         "segments": [asdict(s) for s in transcript.segments],
     }
