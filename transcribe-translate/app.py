@@ -11,6 +11,7 @@ from core.media import find_ytdlp_command, is_url
 from core.pipeline import run_job
 from core.batch import discover_media, run_batch
 from core.library import reindex, search_jobs
+from core.watch import watch_folder
 from core.text import OllamaTextProvider, model_advice
 
 class App(tk.Tk):
@@ -43,6 +44,7 @@ class App(tk.Tk):
         self.output = tk.StringVar(value=str((ROOT / initial.output_dir).resolve() if not Path(initial.output_dir).is_absolute() else initial.output_dir))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
+        self.watch_stop = None
         self._build()
         self.refresh_ollama()
         self.detect_ytdlp()
@@ -122,6 +124,8 @@ class App(tk.Tk):
         ttk.Button(actions,text="START",command=self.start).pack(side="left")
         ttk.Button(actions,text="Batch folder…",command=self.batch_folder).pack(side="left",padx=8)
         ttk.Button(actions,text="Library…",command=self.library).pack(side="left")
+        ttk.Button(actions,text="Watch folder…",command=self.start_watch).pack(side="left",padx=8)
+        ttk.Button(actions,text="Stop watch",command=self.stop_watch).pack(side="left")
         ttk.Button(actions,text="Open output folder",command=self.open_output).pack(side="left",padx=8)
         ttk.Label(actions,textvariable=self.status).pack(side="right")
         logbox=ttk.LabelFrame(root,text="Progress / errors",padding=8); logbox.pack(fill="both",expand=True)
@@ -182,6 +186,27 @@ class App(tk.Tk):
         if emb.is_file(): self.diarization_embedding_model.set(str(emb))
         if seg.is_file() and emb.is_file(): self.logmsg("Local diarization models detected.")
 
+    def start_watch(self):
+        folder=filedialog.askdirectory(title="Choose watch folder")
+        if not folder: return
+        import threading as _threading
+        model=self.ollama_model.get().strip()
+        if not model: messagebox.showerror("Ollama required","No Ollama model is available."); return
+        cfg=load_config(ROOT/"config.json")
+        cfg.language=self.language.get().strip() or "auto"; cfg.local_model=self.model.get(); cfg.ollama_model=model
+        cfg.hotwords=self.hotwords.get().strip(); cfg.word_timestamps=self.word_timestamps.get()
+        cfg.analysis=self.analysis.get(); cfg.analysis_language=self.analysis_language.get().strip() or "source"
+        cfg.search_query=self.search_query.get().strip(); cfg.top_terms=max(5,int(self.top_terms.get()))
+        cfg.qa_question=self.qa_question.get().strip(); cfg.qa_language=self.qa_language.get().strip() or "English"
+        cfg.target_language=self.target.get().strip() or "English"; cfg.translate_transcript=self.translate_transcript.get()
+        cfg.diarization=self.diarization.get(); cfg.diarization_segmentation_model=self.diarization_segmentation_model.get().strip()
+        cfg.diarization_embedding_model=self.diarization_embedding_model.get().strip(); cfg.diarization_num_speakers=max(0,int(self.diarization_num_speakers.get())); cfg.diarization_threshold=float(self.diarization_threshold.get())
+        self.stop_watch(); self.watch_stop=_threading.Event()
+        threading.Thread(target=watch_folder,args=(Path(folder),cfg,Path(self.output.get()),self.watch_stop,self.logmsg),daemon=True).start()
+        self.logmsg("Watch started: "+folder)
+    def stop_watch(self):
+        if self.watch_stop: self.watch_stop.set(); self.watch_stop=None; self.logmsg("Watch stopped.")
+    
     def batch_folder(self):
         folder=filedialog.askdirectory(title="Choose folder containing media to transcribe")
         if not folder: return
