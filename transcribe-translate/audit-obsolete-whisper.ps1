@@ -6,7 +6,12 @@ $packages = @("openai-whisper","torch","faster-whisper","ctranslate2","sherpa-on
 foreach ($p in $packages) {
   Write-Host ""
   Write-Host "=== PACKAGE: $p ===" -ForegroundColor Yellow
-  python -m pip show $p 2>&1
+  $show = python -m pip show $p 2>&1
+  if ($LASTEXITCODE -eq 0) {
+    $show
+  } else {
+    Write-Host "NOT INSTALLED" -ForegroundColor DarkYellow
+  }
 }
 
 $site = python -c "import site; print(site.getusersitepackages())"
