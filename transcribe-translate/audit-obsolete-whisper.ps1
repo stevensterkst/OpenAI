@@ -6,8 +6,17 @@ $packages = @("openai-whisper","torch","faster-whisper","ctranslate2","sherpa-on
 foreach ($p in $packages) {
   Write-Host ""
   Write-Host "=== PACKAGE: $p ===" -ForegroundColor Yellow
-  $show = python -m pip show $p 2>&1
-  if ($LASTEXITCODE -eq 0) {
+
+  # pip writes "Package(s) not found" to stderr when an optional package is absent.
+  # Under PowerShell ErrorActionPreference=Stop, native stderr can otherwise become
+  # a terminating NativeCommandError. That is an audit finding, not an audit failure.
+  $oldNativeErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $show = @(& python -m pip show $p 2>$null)
+  $pipExit = $LASTEXITCODE
+  $ErrorActionPreference = $oldNativeErrorAction
+
+  if ($pipExit -eq 0) {
     $show
   } else {
     Write-Host "NOT INSTALLED" -ForegroundColor DarkYellow
