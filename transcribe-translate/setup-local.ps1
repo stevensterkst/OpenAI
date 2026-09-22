@@ -45,7 +45,9 @@ $diar.segmentation_model=(Join-Path $segDir "model.onnx")
 $diar.embedding_model=$emb
 $diar.num_speakers=0
 $diar.cluster_threshold=0.5
-$data | ConvertTo-Json -Depth 12 | Set-Content $local -Encoding UTF8
+$json = $data | ConvertTo-Json -Depth 12
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($local, $json, $utf8NoBom)
 Write-Host "Diarization installed/configured: PASS" -ForegroundColor Green
 Write-Host "Deno installed locally in: $runtime"
 Write-Host "No Torch, WhisperX, FFmpeg or standalone yt-dlp.exe was installed or changed."
