@@ -3,7 +3,7 @@ Set-Location $PSScriptRoot
 $py=(Get-Command python -ErrorAction Stop).Source
 Write-Host "SS Transcribe-Translate local setup" -ForegroundColor Cyan
 Write-Host "Installing only local runtime dependencies: faster-whisper/CTranslate2, sherpa-onnx, yt-dlp+EJS."
-& $py -m pip install -U -r (Join-Path $PSScriptRoot "requirements.txt")
+& $py -m pip install -r (Join-Path $PSScriptRoot "requirements.txt")
 if($LASTEXITCODE){throw "Python dependency installation failed."}
 
 $runtime=Join-Path $PSScriptRoot "runtime"; New-Item -ItemType Directory -Force $runtime | Out-Null
