@@ -46,7 +46,7 @@ class FasterWhisperASR:
 
     def _run(self, model, audio, language, vad_filter):
         kwargs = {
-            "language": language, "beam_size": 3, "batch_size": 1,
+            "language": language, "beam_size": 3,
             "vad_filter": vad_filter, "condition_on_previous_text": False,
             "word_timestamps": self.word_timestamps,
         }
@@ -106,7 +106,7 @@ class FasterWhisperASR:
             chunk_frames = self.CHUNK_SECONDS * rate
             ranges = [(start, min(frames, start + chunk_frames)) for start in range(0, frames, chunk_frames)]
             if len(ranges) > 1:
-                self.progress(f"Long-recording safety: {len(ranges)} sequential {self.CHUNK_SECONDS//60}-minute chunks; memory is bounded.")
+                self.progress(f"Long-recording safety: {len(ranges)} sequential {self.CHUNK_SECONDS}-second chunks; memory is bounded.")
 
             all_segments = []
             detected_language = None
