@@ -129,7 +129,48 @@ class App(tk.Tk):
         ttk.Button(actions,text="Open output folder",command=self.open_output).pack(side="left",padx=8)
         ttk.Label(actions,textvariable=self.status).pack(side="right")
         logbox=ttk.LabelFrame(root,text="Progress / errors",padding=8); logbox.pack(fill="both",expand=True)
-        self.log=tk.Text(logbox,wrap="word",font=("Consolas",10)); self.log.pack(fill="both",expand=True)
+        toolbar=ttk.Frame(logbox); toolbar.pack(fill="x",pady=(0,6))
+        ttk.Button(toolbar,text="Copy log",command=self.copy_log).pack(side="left")
+        ttk.Button(toolbar,text="Save log…",command=self.save_log).pack(side="left",padx=6)
+        ttk.Button(toolbar,text="Clear",command=self.clear_log).pack(side="left")
+        self.log=tk.Text(logbox,wrap="word",font=("Consolas",10),undo=False)
+        self.log.pack(fill="both",expand=True)
+        self.log.bind("<Control-a>",lambda _e:self.select_all_log())
+        self.log.bind("<Button-3>",self.show_log_menu)
+        self.log_menu=tk.Menu(self.log,tearoff=0)
+        self.log_menu.add_command(label="Copy",command=self.copy_log)
+        self.log_menu.add_command(label="Select all",command=self.select_all_log)
+        self.log_menu.add_separator()
+        self.log_menu.add_command(label="Save log…",command=self.save_log)
+
+    def select_all_log(self):
+        self.log.tag_add("sel","1.0","end-1c")
+        self.log.mark_set("insert","1.0")
+        self.log.see("1.0")
+        return "break"
+
+    def copy_log(self):
+        try:
+            text=self.log.get("sel.first","sel.last")
+        except tk.TclError:
+            text=self.log.get("1.0","end-1c")
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        self.update()
+        self.status.set(f"Copied {len(text)} characters")
+
+    def clear_log(self):
+        self.log.delete("1.0","end")
+
+    def save_log(self):
+        path=filedialog.asksaveasfilename(title="Save processing log",defaultextension=".txt",
+            filetypes=[("Text files","*.txt"),("All files","*.*")])
+        if path:
+            Path(path).write_text(self.log.get("1.0","end-1c"),encoding="utf-8")
+            self.status.set("Log saved: "+path)
+
+    def show_log_menu(self,event):
+        self.log_menu.tk_popup(event.x_root,event.y_root)
 
     def combo(self,parent,label,var,values,row,column):
         ttk.Label(parent,text=label).grid(row=row,column=column,sticky="w",pady=3)
