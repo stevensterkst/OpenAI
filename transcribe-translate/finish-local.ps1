@@ -1,5 +1,6 @@
 param(
-  [string]$Media = "",
+  [Parameter(Mandatory=$true)]
+  [string]$Media,
   [string]$OllamaModel = "",
   [switch]$CleanupObsoleteWhisper
 )
