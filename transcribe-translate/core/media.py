@@ -6,6 +6,8 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
+WINDOWS_NO_CONSOLE = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+
 VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".mp3", ".m4a", ".wav", ".flac", ".ogg"}
 
 def is_url(source: str) -> bool:
@@ -85,7 +87,7 @@ def find_ytdlp_command(configured: str = "", progress=print) -> list[str]:
         try:
             probe = subprocess.run(
                 [sys.executable, "-c", "import yt_dlp; print(yt_dlp.version.__version__)"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, timeout=15, **WINDOWS_NO_CONSOLE,
             )
             if probe.returncode == 0 and probe.stdout.strip():
                 progress("Using existing Python yt-dlp package: " + probe.stdout.strip())
@@ -123,7 +125,7 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
             "-o", str(output), source,
         ]
         try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace", **WINDOWS_NO_CONSOLE)
         except subprocess.CalledProcessError as exc:
             detail = (exc.stderr or exc.stdout or "").strip()
             progress("Primary YouTube format download failed; retrying with a single progressive format.")
@@ -135,7 +137,7 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
                 "-o", str(output), source,
             ]
             try:
-                result = subprocess.run(fallback, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                result = subprocess.run(fallback, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace", **WINDOWS_NO_CONSOLE)
             except subprocess.CalledProcessError as fallback_exc:
                 fallback_detail = (fallback_exc.stderr or fallback_exc.stdout or "").strip()
                 raise RuntimeError(
@@ -163,7 +165,7 @@ def extract_audio(media: Path, destination: Path) -> Path:
     subprocess.run(
         [ffmpeg, "-y", "-i", str(media), "-vn", "-ac", "1", "-ar", "16000",
          "-c:a", "pcm_s16le", str(destination)],
-        check=True,
+        check=True, **WINDOWS_NO_CONSOLE,
     )
     if not destination.is_file() or destination.stat().st_size <= 44:
         raise RuntimeError("FFmpeg produced no usable audio track.")
