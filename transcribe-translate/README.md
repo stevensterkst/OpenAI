@@ -1,88 +1,105 @@
 # SS Transcribe-Translate
 
-Windows-native, local-first transcription and analysis utility.
+Windows-native, local-first transcription, summarisation, translation and source-grounded analysis.
 
-## Core design — source first
+## Product order — this is intentional
 
-The **original-language transcript is the primary product**.
+The **source-language transcript is the primary product**.
 
-The pipeline is:
+The **source-language summary is also a primary/basic feature** and is generated directly from that original-language transcript.
+
+The **English summary is NOT an independent summary**. It is only a translation of the source-language summary.
+
+A **full transcript translation is optional**, independent of the summaries, and can target any language supported by the selected Ollama model.
+
+The source-grounded meeting/evidence analysis is an additional layer downstream of the original transcript. It must never replace or rewrite the primary source transcript.
+
+## Pipeline
 
 1. Local media file or YouTube URL
-2. FFmpeg extracts 16 kHz mono audio
-3. **faster-whisper + CTranslate2** performs local speech-to-text
-4. The **source-language summary is generated directly from the source-language transcript**
-5. The **English summary is only a translation of that source-language summary**
-6. Full transcript translation is an **optional extra**, into any language selected by the user
-7. Ollama provides the local text/translation model; the GUI discovers all models currently installed on the user's Ollama instance
+2. Existing FFmpeg extracts 16 kHz mono audio
+3. faster-whisper + CTranslate2 performs local speech-to-text
+4. Original-language transcript is saved with segment timestamps
+5. Source-language summary is generated directly from the source transcript
+6. English summary is translated from the source-language summary
+7. Source-grounded analysis optionally extracts topics/timeline, people mentioned, proposals, decisions, votes, questions/objections, action items, evidence, procedural/governance flags, contradictions and knowledge-management tags
+8. Full transcript translation is optionally performed into the user's target language
 
-There is deliberately **no paid OpenAI API call in this application**. The SS project may use OpenAI separately for coding, orchestration, knowledge-management or other approved SS-brain work; that does not make this Transcribe-Translate runtime dependent on paid OpenAI transcription.
+## Local/free boundary
 
-## Local runtime
+The application runtime makes **no OpenAI API calls and requires no paid API token**.
 
-- Windows
-- Python + faster-whisper
-- CTranslate2
-- FFmpeg executable for audio extraction
-- standalone yt-dlp.exe for YouTube input
-- Ollama for summaries and optional translation
+OpenAI remains part of the wider SS development/knowledge-management ecosystem and may be used outside this application for coding, SDK work, orchestration or SS-brain functions. That is deliberately separate from this application's runtime.
 
-**WhisperX and Torch are not required by this application.**
+The app's transcription is local via faster-whisper/CTranslate2. Text summarisation, analysis and optional translation are local via Ollama.
 
 ## Ollama model selection
 
-The GUI queries Ollama's local /api/tags endpoint and exposes every installed model instead of hard-coding one model.
+The GUI calls Ollama's local `/api/tags` endpoint and exposes **every model currently installed**, rather than hard-coding Qwen or another model.
 
-The current PC has been using these local models:
+The currently known PC models are:
 
-- llama3.2:1b — fast/lightweight
-- gemma3:1b — fast/lightweight
-- qwen3:1.7b — balanced multilingual/speed option
-- phi4-mini:3.8b — slower, but the strongest of these known choices for careful text work
+- `llama3.2:1b` — fast/lightweight
+- `gemma3:1b` — fast/lightweight
+- `qwen3:1.7b` — balanced multilingual/speed option
+- `phi4-mini:3.8b` — stronger starting choice for careful translation/analysis, with slower CPU generation
 
-The application displays a recommendation, but the user retains the choice. The recommendation is a speed/precision trade-off, not a hidden model switch.
+The GUI gives a recommendation but never silently changes the user's selection. The recommendation is a heuristic, not a benchmark claim.
 
-## Primary outputs
+## Outputs
 
-Every completed job writes:
+Primary outputs:
 
-- original.txt — complete source-language transcript
-- original.json — structured transcript + segment timestamps
-- original.srt — timestamped source transcript
-- original.vtt — timestamped source transcript
-- source_summary.md — comprehensive summary in the source language
-- english_summary.md — English translation of the source-language summary
-- job.json — processing metadata and explicit zero-API declaration
-- output_manifest.json — files produced
+- `original.txt` — complete source-language transcript
+- `original.json` — transcript + segment timestamps
+- `original.srt` — timestamped source transcript
+- `original.vtt` — timestamped source transcript
+- `source_summary.md` — source-language summary
+- `english_summary.md` — English translation of the source summary
 
-When optional full transcript translation is enabled:
+Additional output when analysis is enabled:
 
-- translation.txt — complete translation into the selected target language
+- `analysis.md` — source-grounded analysis including timeline, topics, decisions, proposals, votes, action items, evidence matrix, procedural/governance review points, contradictions and knowledge-management tags
 
-## Important separation
+Additional output when full translation is enabled:
 
-The full source transcript is **not** translated merely to make the source summary.
+- `translation.txt` — complete source transcript translated to the selected target language
 
-The source summary is produced first from the original-language transcript.
+Metadata:
 
-The English summary is then translated from that source summary.
+- `job.json` — model, language, provenance and zero-paid-API assertion
+- `output_manifest.json` — produced outputs
 
-A full transcript translation is an independent optional operation.
+## Evidence rules
 
-## YouTube and FFmpeg
+The analysis layer is deliberately conservative:
 
-The application does not install, replace or modify the user's existing FFmpeg or standalone yt-dlp.exe.
+- It uses only the original-language transcript.
+- It does not claim speaker diarization unless the transcript itself supports speaker identification.
+- It does not invent votes, motives, legal conclusions, dates, amounts or decisions.
+- It distinguishes explicit transcript facts from analytical flags and reports insufficient evidence when necessary.
 
-For YouTube input, set paths.ytdlp_path in config.json if the existing standalone executable is not on PATH.
+## Existing FFmpeg / standalone yt-dlp
 
-## Start
+The application does not install, replace or modify the user's existing FFmpeg or standalone yt-dlp.
 
-Run run.bat.
+For YouTube input, configure `paths.ytdlp_path` if the existing standalone executable is not on PATH.
 
-The GUI discovers the installed Ollama models and lets the user choose the text model.
+## Obsolete Whisper/Torch cleanup
 
-## Verification status
+The application itself requires neither WhisperX nor Torch.
 
-Repository-level verification confirms the source-first architecture and absence of an OpenAI API call in the application code.
+Do **not** run the cleanup blindly: first run the read-only audit supplied in the working instructions and verify package ownership and disk usage. The cleanup script is intentionally restricted to obsolete `openai-whisper` and `torch`; it does not touch Python, FFmpeg, standalone yt-dlp, Hugging Face cache, or SS project files.
 
-A real Windows end-to-end run still has to be executed on the user's machine with an actual recording. That is the only honest way to prove transcription accuracy, Ollama availability, model speed and the final output files on this particular PC.
+## Verification
+
+Repository inspection verifies the architecture and source-first data flow.
+
+A real Windows end-to-end run is still required to verify:
+- actual transcription on your recordings
+- Ollama reachability and installed models
+- actual CPU speed/quality
+- FFmpeg and standalone yt-dlp discovery on this PC
+- actual generated output contents
+
+No code inspection can honestly substitute for that real run.
