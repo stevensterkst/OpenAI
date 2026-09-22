@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import csv
 from dataclasses import asdict
 from pathlib import Path
 from .asr import Transcript
@@ -27,7 +28,14 @@ def write_outputs(
     analysis_created: bool = False, analysis_language: str = "source",
 ) -> None:
     directory.mkdir(parents=True, exist_ok=True)
+    transcript_lines=["# Transcript", "", f"**Language:** {transcript.language or 'detected'}", ""]
+    for s in transcript.segments:
+        transcript_lines.append(f"- **{_ts(s.start, False)} → {_ts(s.end, False)}** {_body(s)}")
     (directory / "original.txt").write_text("\n".join(_body(s) for s in transcript.segments) + "\n", encoding="utf-8")
+    (directory / "transcript.md").write_text("\n".join(transcript_lines) + "\n", encoding="utf-8")
+    with (directory / "segments.csv").open("w", newline="", encoding="utf-8-sig") as fh:
+        writer=csv.writer(fh); writer.writerow(["start","end","speaker","text"])
+        for s in transcript.segments: writer.writerow([s.start,s.end,s.speaker or "",s.text])
     (directory / "source_summary.md").write_text(
         f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n", encoding="utf-8")
     (directory / "english_summary.md").write_text(
@@ -71,7 +79,7 @@ def write_outputs(
         "search_report_created": True, "qa_created": bool(qa_question.strip()),
         "word_timestamps_available": any(bool(s.words) for s in transcript.segments),
         "speaker_labels_available": any(bool(s.speaker) for s in transcript.segments),
-        "primary_outputs": ["original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md"],
+        "primary_outputs": ["original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md"],
         "analysis_outputs": (["analysis_source.md","analysis.md","search_report.json"] if analysis_created else ["search_report.json"]),
         "optional_outputs": ([ "translation.txt" ] if translated else []) + ([ "qa.md" ] if qa_question.strip() else []),
     }
