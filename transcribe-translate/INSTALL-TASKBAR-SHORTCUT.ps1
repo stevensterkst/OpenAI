@@ -3,18 +3,33 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $start = [Environment]::GetFolderPath("StartMenu")
 $dir = Join-Path $start "Programs\SS Transcribe-Translate"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-$pythonw = "C:\Python313\pythonw.exe"
-if(-not (Test-Path $pythonw)){ $pythonw = (Get-Command pythonw.exe -ErrorAction Stop).Source }
+
+$launcher = Join-Path $root "START-APP.cmd"
+if(-not (Test-Path $launcher)){ throw "START-APP.cmd is missing: $launcher" }
+
 $shortcut = Join-Path $dir "SS Transcribe-Translate.lnk"
 $ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut($shortcut)
-$sc.TargetPath = $pythonw
-$sc.Arguments = '"' + $root + '\app.py"'
+$sc.TargetPath = $launcher
 $sc.WorkingDirectory = $root
-$sc.Description = "SS Transcribe-Translate — local transcription, summaries, analysis and transcript workspace"
-$sc.IconLocation = "$pythonw,0"
+$sc.Description = "SS Transcribe-Translate — single local application launcher"
+$sc.IconLocation = "$env:SystemRoot\System32\SHELL32.dll,167"
 $sc.Save()
-Write-Host "Created Start Menu shortcut:"
+
+# Replace a legacy pinned shortcut named Transcription when Windows exposes it as a normal .lnk.
+$taskbarDir = Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+if(Test-Path $taskbarDir){
+  $legacy = Get-ChildItem $taskbarDir -Filter "*.lnk" -ErrorAction SilentlyContinue |
+    Where-Object { $_.BaseName -match "^(Transcription|Transcribe-Translate|SS Transcribe-Translate)$" } |
+    Select-Object -First 1
+  if($legacy){
+    Copy-Item $shortcut $legacy.FullName -Force
+    Write-Host "Replaced legacy taskbar shortcut: $($legacy.Name)"
+  }
+}
+
+Write-Host "Start shortcut ready:"
 Write-Host $shortcut
 Write-Host ""
-Write-Host "Open Start, search SS Transcribe-Translate, launch it once, then right-click its taskbar icon and choose Pin to taskbar."
+Write-Host "The single application launcher is START-APP.cmd."
+Write-Host "If Windows does not refresh the existing taskbar pin automatically, unpin the old Transcription icon and pin SS Transcribe-Translate from Start.";
