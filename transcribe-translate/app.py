@@ -4,10 +4,13 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+import webbrowser
 
 from core.config import ROOT, load_config, save_local_config
 from core.media import find_ytdlp_command, is_url
 from core.pipeline import run_job
+from core.batch import discover_media, run_batch
+from core.library import reindex, search_jobs
 from core.text import OllamaTextProvider, model_advice
 
 class App(tk.Tk):
@@ -17,9 +20,10 @@ class App(tk.Tk):
         self.geometry("1200x1020")
         self.minsize(1040, 900)
         self.source = tk.StringVar(value=os.environ.get("SS_TRANSCRIBE_SOURCE", ""))
-        self.ytdlp_path = tk.StringVar(value=load_config(ROOT / "config.json").ytdlp_path)
-        self.language = tk.StringVar(value="auto")
-        self.model = tk.StringVar(value="small")
+        initial=load_config(ROOT / "config.json")
+        self.ytdlp_path = tk.StringVar(value=initial.ytdlp_path)
+        self.language = tk.StringVar(value=initial.language)
+        self.model = tk.StringVar(value=initial.local_model)
         self.ollama_model = tk.StringVar()
         self.target = tk.StringVar(value="English")
         self.analysis_language = tk.StringVar(value="source")
@@ -36,12 +40,13 @@ class App(tk.Tk):
         self.diarization_embedding_model = tk.StringVar()
         self.diarization_num_speakers = tk.IntVar(value=0)
         self.diarization_threshold = tk.DoubleVar(value=0.5)
-        self.output = tk.StringVar(value=str(ROOT / "output"))
+        self.output = tk.StringVar(value=str((ROOT / initial.output_dir).resolve() if not Path(initial.output_dir).is_absolute() else initial.output_dir))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
         self._build()
         self.refresh_ollama()
         self.detect_ytdlp()
+        self.detect_diarization_models()
 
     def _build(self):
         root = ttk.Frame(self, padding=16); root.pack(fill="both", expand=True)
@@ -115,6 +120,8 @@ class App(tk.Tk):
 
         actions=ttk.Frame(root); actions.pack(fill="x",pady=8)
         ttk.Button(actions,text="START",command=self.start).pack(side="left")
+        ttk.Button(actions,text="Batch folder…",command=self.batch_folder).pack(side="left",padx=8)
+        ttk.Button(actions,text="Library…",command=self.library).pack(side="left")
         ttk.Button(actions,text="Open output folder",command=self.open_output).pack(side="left",padx=8)
         ttk.Label(actions,textvariable=self.status).pack(side="right")
         logbox=ttk.LabelFrame(root,text="Progress / errors",padding=8); logbox.pack(fill="both",expand=True)
@@ -167,6 +174,62 @@ class App(tk.Tk):
         except FileNotFoundError:
             self.logmsg("No yt-dlp executable/package was found automatically.")
             return []
+
+    def detect_diarization_models(self):
+        seg=ROOT/"models"/"diarization"/"sherpa-onnx-pyannote-segmentation-3-0"/"model.onnx"
+        emb=ROOT/"models"/"diarization"/"3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+        if seg.is_file(): self.diarization_segmentation_model.set(str(seg))
+        if emb.is_file(): self.diarization_embedding_model.set(str(emb))
+        if seg.is_file() and emb.is_file(): self.logmsg("Local diarization models detected.")
+
+    def batch_folder(self):
+        folder=filedialog.askdirectory(title="Choose folder containing media to transcribe")
+        if not folder: return
+        model=self.ollama_model.get().strip()
+        if not model:
+            messagebox.showerror("Ollama required","No Ollama model is available."); return
+        sources=discover_media(Path(folder))
+        if not sources:
+            messagebox.showinfo("No media","No supported audio/video files were found."); return
+        cfg=load_config(ROOT/"config.json")
+        cfg.language=self.language.get().strip() or "auto"; cfg.local_model=self.model.get(); cfg.ollama_model=model
+        cfg.hotwords=self.hotwords.get().strip(); cfg.word_timestamps=self.word_timestamps.get()
+        cfg.analysis=self.analysis.get(); cfg.analysis_language=self.analysis_language.get().strip() or "source"
+        cfg.search_query=self.search_query.get().strip(); cfg.top_terms=max(5,int(self.top_terms.get()))
+        cfg.qa_question=self.qa_question.get().strip(); cfg.qa_language=self.qa_language.get().strip() or "English"
+        cfg.target_language=self.target.get().strip() or "English"; cfg.translate_transcript=self.translate_transcript.get()
+        cfg.diarization=self.diarization.get(); cfg.diarization_segmentation_model=self.diarization_segmentation_model.get().strip()
+        cfg.diarization_embedding_model=self.diarization_embedding_model.get().strip(); cfg.diarization_num_speakers=max(0,int(self.diarization_num_speakers.get())); cfg.diarization_threshold=float(self.diarization_threshold.get())
+        self.status.set(f"Batch: {len(sources)} files")
+        threading.Thread(target=lambda: self.batch_worker(sources,cfg),daemon=True).start()
+
+    def batch_worker(self,sources,cfg):
+        results=run_batch(sources,cfg,Path(self.output.get()),self.logmsg)
+        self.logmsg(f"BATCH COMPLETE: {len(results)}/{len(sources)} succeeded")
+        self.after(0,lambda:messagebox.showinfo("Batch complete",f"{len(results)} of {len(sources)} jobs completed."))
+
+    def library(self):
+        root=Path(self.output.get()); root.mkdir(parents=True,exist_ok=True); reindex(root)
+        win=tk.Toplevel(self); win.title("SS Transcribe-Translate — Local Library"); win.geometry("1000x600")
+        top=ttk.Frame(win,padding=10); top.pack(fill="x")
+        q=tk.StringVar(); ttk.Entry(top,textvariable=q,width=70).pack(side="left",fill="x",expand=True)
+        tree=ttk.Treeview(win,columns=("created","source","language","duration","speakers"),show="headings")
+        for col,w in (("created",150),("source",500),("language",100),("duration",90),("speakers",80)):
+            tree.heading(col,text=col.title()); tree.column(col,width=w)
+        tree.pack(fill="both",expand=True,padx=10,pady=10)
+        def refresh():
+            for item in tree.get_children(): tree.delete(item)
+            for row in search_jobs(root,q.get()):
+                tree.insert("", "end", iid=row["job_dir"], values=(row["created"],row["source"],row["language"],f'{row["duration"]:.1f}s',row["speakers"]))
+        ttk.Button(top,text="Search",command=refresh).pack(side="left",padx=8)
+        def open_selected():
+            sel=tree.selection()
+            if not sel: return
+            player=Path(sel[0])/"player.html"
+            if player.exists(): webbrowser.open(player.as_uri())
+            else: messagebox.showerror("Player missing","This job has no player.html.")
+        ttk.Button(top,text="Open synchronized player",command=open_selected).pack(side="left")
+        refresh()
 
     def logmsg(self,msg):
         self.after(0,lambda:(self.log.insert("end",msg+"\n"),self.log.see("end"),self.status.set(msg[:150])))
