@@ -31,7 +31,8 @@ Progress = Callable[[str], None]
 class FasterWhisperASR:
     # Bound the decoded WAV passed to faster-whisper. Long recordings can otherwise
     # trigger multi-GB NumPy STFT allocations before inference starts.
-    CHUNK_SECONDS = 30
+    # Keep each decode request comfortably below the RAM ceiling of the Windows PC.
+    CHUNK_SECONDS = 20
 
     def __init__(self, model: str, language: str, compute_type: str,
                  hotwords: str = "", word_timestamps: bool = True,
@@ -45,8 +46,9 @@ class FasterWhisperASR:
 
     def _run(self, model, audio, language, vad_filter):
         kwargs = {
-            "language": language, "beam_size": 5, "vad_filter": vad_filter,
-            "condition_on_previous_text": True, "word_timestamps": self.word_timestamps,
+            "language": language, "beam_size": 3, "batch_size": 1,
+            "vad_filter": vad_filter, "condition_on_previous_text": False,
+            "word_timestamps": self.word_timestamps,
         }
         if self.hotwords:
             kwargs["hotwords"] = self.hotwords
@@ -86,7 +88,8 @@ class FasterWhisperASR:
         except ImportError as exc:
             raise RuntimeError("faster-whisper is not installed; Torch/WhisperX are not required.") from exc
 
-        import tempfile, wave
+        import wave
+        import numpy as np
         language = None if self.language == "auto" else self.language
         self.progress(f"Local transcription: faster-whisper model={self.model_name}, device=cpu, compute={self.compute_type}")
         if self.hotwords:
@@ -107,16 +110,16 @@ class FasterWhisperASR:
 
             all_segments = []
             detected_language = None
-            with tempfile.TemporaryDirectory(prefix="ss-asr-") as td:
+            with __import__("contextlib").nullcontext():
                 for i, (start, end) in enumerate(ranges, 1):
                     offset = start / float(rate)
                     wf.setpos(start)
                     raw = wf.readframes(end - start)
-                    cp = Path(td) / f"chunk-{i:04d}.wav"
-                    with wave.open(str(cp), "wb") as out:
-                        out.setnchannels(1); out.setsampwidth(2); out.setframerate(rate); out.writeframes(raw)
+                    # Decode directly from the bounded NumPy chunk. This guarantees
+                    # faster-whisper receives at most CHUNK_SECONDS of audio per request.
+                    samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
                     self.progress(f"Transcribing chunk {i}/{len(ranges)} ({offset/60:.1f} min)…")
-                    collected, info = self._collect(model, cp, language if language else detected_language)
+                    collected, info = self._collect(model, samples, language if language else detected_language)
                     if detected_language is None:
                         detected_language = getattr(info, "language", None) or language
                     for s in collected:
