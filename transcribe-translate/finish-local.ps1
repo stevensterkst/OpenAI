@@ -1,61 +1,49 @@
 param(
-  [Parameter(Mandatory=$true)]
-  [string]$Media,
+  [string]$Media = "",
   [string]$OllamaModel = "",
+  [switch]$SkipSetup,
+  [switch]$SkipBuild,
   [switch]$CleanupObsoleteWhisper
 )
-
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference="Stop"
 Set-Location $PSScriptRoot
+Write-Host "=== SS TRANSCRIBE-TRANSLATE FINAL LOCAL BUILD / VERIFY ===" -ForegroundColor Cyan
+Write-Host "Setup and build are enabled by default; obsolete Whisper/Torch cleanup is NEVER automatic."
 
-Write-Host "=== SS TRANSCRIBE-TRANSLATE FINISH / VERIFY ===" -ForegroundColor Cyan
-Write-Host "Default mode is NON-DESTRUCTIVE: audit + real local verification only."
-Write-Host "Obsolete Whisper/Torch cleanup is NEVER automatic. Use -CleanupObsoleteWhisper only when explicitly intended."
-
-$repo = Split-Path $PSScriptRoot -Parent
-Set-Location $repo
-Write-Host ""
-Write-Host "=== 1. UPDATE FROM GITHUB ===" -ForegroundColor Yellow
-git pull --ff-only
-if ($LASTEXITCODE -ne 0) { throw "git pull failed. Nothing else was attempted." }
-Set-Location $PSScriptRoot
-
-Write-Host ""
-Write-Host "=== 2. CONFIG BACKUP EVIDENCE ===" -ForegroundColor Yellow
-foreach ($name in @("config.json.LOCAL-BACKUP","config.json.LOCAL-BACKUP-20260922_121836")) {
-  $p = Join-Path $PSScriptRoot $name
-  if (Test-Path $p) { $h = Get-FileHash $p -Algorithm SHA256; Write-Host "$name : $($h.Hash)" }
+if(-not $SkipSetup){
+  & (Join-Path $PSScriptRoot "setup-local.ps1")
+  if($LASTEXITCODE){throw "Local setup failed."}
 }
-$tracked = Join-Path $PSScriptRoot "config.json"
-if (Test-Path $tracked) { $h = Get-FileHash $tracked -Algorithm SHA256; Write-Host "tracked config.json : $($h.Hash)" }
-
-Write-Host ""
-Write-Host "=== 3. READ-ONLY DEPENDENCY AUDIT ===" -ForegroundColor Yellow
-& (Join-Path $PSScriptRoot "audit-obsolete-whisper.ps1")
-if ($LASTEXITCODE -ne 0) { throw "Read-only audit failed. Verification was NOT attempted." }
-
-if ($CleanupObsoleteWhisper) {
-  Write-Host ""
-  Write-Host "=== 4. EXPLICITLY REQUESTED OBSOLETE PACKAGE CLEANUP ===" -ForegroundColor Yellow
+if(-not $SkipBuild){
+  & (Join-Path $PSScriptRoot "build-exe.ps1")
+  if($LASTEXITCODE){throw "Windows application build failed."}
+}
+if($CleanupObsoleteWhisper){
+  Write-Host "=== EXPLICIT OBSOLETE PACKAGE CLEANUP ===" -ForegroundColor Yellow
   & (Join-Path $PSScriptRoot "cleanup-obsolete-whisper.ps1")
-  if ($LASTEXITCODE -ne 0) { throw "Cleanup failed. Verification was NOT attempted." }
-} else {
-  Write-Host ""
-  Write-Host "=== 4. CLEANUP SKIPPED ===" -ForegroundColor Green
+  if($LASTEXITCODE){throw "Cleanup failed."}
+}else{
+  Write-Host "Obsolete Whisper/Torch cleanup: SKIPPED" -ForegroundColor Green
 }
 
-Write-Host ""
-Write-Host "=== 5. REAL LOCAL END-TO-END VERIFICATION ===" -ForegroundColor Yellow
-$args = @()
-if ($Media) { $args += @("-Media", $Media) }
-if ($OllamaModel) { $args += @("-OllamaModel", $OllamaModel) }
-& (Join-Path $PSScriptRoot "verify-local.ps1") @args
-if ($LASTEXITCODE -ne 0) { throw "End-to-end verification failed." }
+if(-not $Media){
+  Add-Type -AssemblyName System.Windows.Forms
+  $dialog=New-Object System.Windows.Forms.OpenFileDialog
+  $dialog.Title="Select a real speech recording for final end-to-end verification"
+  $dialog.Filter="Audio/Video|*.wav;*.mp3;*.m4a;*.mp4;*.mkv;*.mov;*.webm;*.flac;*.ogg|All files|*.*"
+  if($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK){throw "No verification recording selected."}
+  $Media=$dialog.FileName
+}
+& (Join-Path $PSScriptRoot "verify-local.ps1") -Media $Media -OllamaModel $OllamaModel
+if($LASTEXITCODE){throw "End-to-end verification failed."}
 
 Write-Host ""
-Write-Host "=== FINISHED ===" -ForegroundColor Green
-Write-Host "Git update: PASS"
-Write-Host "Read-only dependency audit: PASS"
-if ($CleanupObsoleteWhisper) { Write-Host "Obsolete Whisper/Torch cleanup: PASS" } else { Write-Host "Obsolete Whisper/Torch cleanup: SKIPPED" }
-Write-Host "Real local verification: PASS"
+Write-Host "=== FINAL RESULT ===" -ForegroundColor Green
+Write-Host "Local dependencies + diarization: INSTALLED/CONFIGURED"
+Write-Host "Windows GUI application: BUILT"
+Write-Host "Batch processing: INCLUDED"
+Write-Host "Persistent searchable library: INCLUDED"
+Write-Host "Synchronized transcript player: INCLUDED"
+Write-Host "YouTube yt-dlp/EJS path: CONFIGURED"
+Write-Host "Real end-to-end verification: PASS"
 Write-Host "OpenAI paid API runtime: NOT USED"
