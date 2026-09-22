@@ -6,6 +6,7 @@ import json
 
 from .asr import FasterWhisperASR
 from .config import AppConfig
+from .diarization import assign_speakers, diarize_audio
 from .media import extract_audio, prepare_media, is_url
 from .outputs import write_outputs
 from .search import build_search_report
@@ -24,7 +25,8 @@ def timestamped_transcript(transcript) -> str:
         start = int(segment.start)
         h, rem = divmod(start, 3600)
         m, s = divmod(rem, 60)
-        lines.append(f"[{h:02d}:{m:02d}:{s:02d}] {segment.text}")
+        speaker = f"[{segment.speaker}] " if segment.speaker else ""
+        lines.append(f"[{h:02d}:{m:02d}:{s:02d}] {speaker}{segment.text}")
     return "\n".join(lines)
 
 def sha256_file(path: Path) -> str:
@@ -53,6 +55,16 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         cfg.local_model, cfg.language, cfg.compute_type,
         hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
     ).transcribe(audio)
+
+    diarization_used = False
+    if cfg.diarization:
+        diarization_segments = diarize_audio(
+            audio, cfg.diarization_segmentation_model, cfg.diarization_embedding_model,
+            num_speakers=cfg.diarization_num_speakers,
+            threshold=cfg.diarization_threshold, progress=progress,
+        )
+        assign_speakers(transcript.segments, diarization_segments)
+        diarization_used = True
 
     detected_code = transcript.language or cfg.language
     source_name = LANGUAGE_NAMES.get(detected_code, detected_code or "source language")
@@ -86,28 +98,26 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
 
     tier, advice = model_advice(cfg.ollama_model)
     metadata = {
-        "source": source,
-        "input_media_sha256": media_hash,
-        "language": transcript.language,
-        "asr_backend": transcript.backend,
-        "asr_model": transcript.model,
-        "word_timestamps": cfg.word_timestamps,
-        "hotwords": cfg.hotwords,
-        "text_provider": "ollama",
-        "text_model": cfg.ollama_model,
+        "source": source, "input_media_sha256": media_hash,
+        "language": transcript.language, "asr_backend": transcript.backend,
+        "asr_model": transcript.model, "word_timestamps": cfg.word_timestamps,
+        "hotwords": cfg.hotwords, "text_provider": "ollama", "text_model": cfg.ollama_model,
         "ollama_model_advice": {"tier": tier, "note": advice},
         "source_summary": "generated from original-language transcript",
         "english_summary": "translation of source-language summary",
         "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
         "analysis_language": cfg.analysis_language if cfg.analysis else None,
-        "search_query": cfg.search_query,
-        "search_match_count": search_report["match_count"],
+        "search_query": cfg.search_query, "search_match_count": search_report["match_count"],
+        "diarization": {
+            "enabled": cfg.diarization,
+            "used": diarization_used,
+            "segmentation_model": cfg.diarization_segmentation_model if cfg.diarization else None,
+            "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None,
+        },
         "full_transcript_translation": cfg.translate_transcript,
         "target_language": cfg.target_language if cfg.translate_transcript else None,
         "api_cost": "0: no OpenAI API calls are made by this application",
     }
-    (job_dir / "job.json").write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     progress(f"COMPLETE: {job_dir}")
     return job_dir
