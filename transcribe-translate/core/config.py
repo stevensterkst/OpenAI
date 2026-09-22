@@ -15,9 +15,12 @@ class AppConfig:
     hotwords: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
+    analysis_language: str = "source"
     target_language: str = "English"
     translate_transcript: bool = False
     analysis: bool = True
+    search_query: str = ""
+    top_terms: int = 30
     output_dir: str = "output"
     ytdlp_path: str = ""
 
@@ -28,6 +31,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         data = json.loads(path.read_text(encoding="utf-8"))
     asr = data.get("asr", {})
     text = data.get("text", {})
+    analysis = data.get("analysis", {})
     paths = data.get("paths", {})
     return AppConfig(
         local_model=asr.get("local_model", "small"),
@@ -37,9 +41,12 @@ def load_config(path: Path | None = None) -> AppConfig:
         hotwords=str(asr.get("hotwords", "")),
         ollama_url=text.get("ollama_url", "http://127.0.0.1:11434"),
         ollama_model=text.get("ollama_model", ""),
+        analysis_language=str(text.get("analysis_language", "source")),
         target_language=text.get("target_language", "English"),
         translate_transcript=bool(text.get("translate_transcript", False)),
         analysis=bool(text.get("analysis", True)),
+        search_query=str(analysis.get("search_query", "")),
+        top_terms=int(analysis.get("top_terms", 30)),
         output_dir=paths.get("output_dir", "output"),
         ytdlp_path=paths.get("ytdlp_path", ""),
     )
