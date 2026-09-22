@@ -12,8 +12,9 @@ class AppConfig:
     language: str = "auto"
     compute_type: str = "int8"
     ollama_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3:1.7b"
-    target_language: str = "en"
+    ollama_model: str = ""
+    target_language: str = "English"
+    translate_transcript: bool = False
     output_dir: str = "output"
     ytdlp_path: str = ""
 
@@ -30,8 +31,9 @@ def load_config(path: Path | None = None) -> AppConfig:
         language=asr.get("language", "auto"),
         compute_type=asr.get("compute_type", "int8"),
         ollama_url=text.get("ollama_url", "http://127.0.0.1:11434"),
-        ollama_model=text.get("ollama_model", "qwen3:1.7b"),
-        target_language=text.get("target_language", "en"),
+        ollama_model=text.get("ollama_model", ""),
+        target_language=text.get("target_language", "English"),
+        translate_transcript=bool(text.get("translate_transcript", False)),
         output_dir=paths.get("output_dir", "output"),
         ytdlp_path=paths.get("ytdlp_path", ""),
     )
