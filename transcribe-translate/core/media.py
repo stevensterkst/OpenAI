@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
+import sys
 from urllib.parse import urlparse
 
 VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".mp3", ".m4a", ".wav", ".flac", ".ogg"}
@@ -84,14 +85,32 @@ def find_ytdlp(configured: str = "", progress=print) -> str:
         "Use Browse yt-dlp… once to select your existing standalone executable."
     )
 
+def find_ytdlp_command(configured: str = "", progress=print) -> list[str]:
+    try:
+        return [find_ytdlp(configured, progress)]
+    except FileNotFoundError:
+        # The audited PC already has the yt-dlp Python package installed.
+        # Use it without installing/updating/removing anything.
+        try:
+            probe = subprocess.run(
+                [sys.executable, "-c", "import yt_dlp; print(yt_dlp.version.__version__)"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if probe.returncode == 0 and probe.stdout.strip():
+                progress("Using existing Python yt-dlp package: " + probe.stdout.strip())
+                return [sys.executable, "-m", "yt_dlp"]
+        except Exception:
+            pass
+        raise
+
 def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
     work.mkdir(parents=True, exist_ok=True)
     if is_url(source):
-        ytdlp = find_ytdlp(ytdlp_path)
+        ytdlp_command = find_ytdlp_command(ytdlp_path)
         output = work / "%(id)s.%(ext)s"
         ffmpeg = find_ffmpeg()
         command = [
-            ytdlp, "--no-playlist", "--no-warnings",
+            *ytdlp_command, "--no-playlist", "--no-warnings",
             "-f", "bestvideo*+bestaudio/best",
             "--merge-output-format", "mp4",
             "--ffmpeg-location", str(Path(ffmpeg).parent),
