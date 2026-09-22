@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -14,7 +15,7 @@ class App(tk.Tk):
         self.title("SS Transcribe-Translate — Free Local")
         self.geometry("1200x1020")
         self.minsize(1040, 900)
-        self.source = tk.StringVar()
+        self.source = tk.StringVar(value=os.environ.get("SS_TRANSCRIBE_SOURCE", ""))
         self.language = tk.StringVar(value="auto")
         self.model = tk.StringVar(value="small")
         self.ollama_model = tk.StringVar()
