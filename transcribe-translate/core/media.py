@@ -114,8 +114,9 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
         js_runtime = find_js_runtime()
         command = [
             *ytdlp_command, "--no-playlist", "--no-warnings",
-            "-f", "bestvideo*+bestaudio/best",
-            "--merge-output-format", "mp4",
+            # Transcription does not need the video stream. Download audio only to
+            # keep a 2–3 hour job small and avoid a needless video merge/copy.
+            "-f", "bestaudio/best",
             "--ffmpeg-location", str(Path(ffmpeg).parent),
             *(["--js-runtimes", f"deno:{js_runtime}"] if js_runtime and Path(js_runtime).name.lower() == "deno.exe" else ["--js-runtimes", f"node:{js_runtime}"] if js_runtime else []),
             "--print", "after_move:filepath",
@@ -128,7 +129,7 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
             progress("Primary YouTube format download failed; retrying with a single progressive format.")
             fallback = [
                 *ytdlp_command, "--no-playlist", "--no-warnings",
-                "-f", "b[ext=mp4]/b",
+                "-f", "ba/b",
                 "--ffmpeg-location", str(Path(ffmpeg).parent),
                 "--print", "after_move:filepath",
                 "-o", str(output), source,
