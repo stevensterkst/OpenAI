@@ -9,9 +9,14 @@
   "text": {
     "ollama_url": "http://127.0.0.1:11434",
     "ollama_model": "",
+    "analysis_language": "source",
     "translate_transcript": false,
     "analysis": true,
     "target_language": "English"
+  },
+  "analysis": {
+    "search_query": "",
+    "top_terms": 30
   },
   "paths": {
     "output_dir": "output",
