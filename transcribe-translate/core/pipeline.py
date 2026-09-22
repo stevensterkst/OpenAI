@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import hashlib
+import shutil
 import json
 
 from .asr import FasterWhisperASR
@@ -127,7 +128,13 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
     }
     (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    write_player(job_dir, media, job_dir / "original.json")
+    if cfg.keep_media:
+        write_player(job_dir, media, job_dir / "original.json")
+        progress("Media retention enabled: source/downloaded media and extracted audio are retained in _work.")
+    else:
+        progress("Text-only retention: deleting downloaded/source media and extracted audio.")
+        shutil.rmtree(work, ignore_errors=True)
+        progress("Temporary media deleted; only transcript/text outputs remain.")
     index_job(job_dir, output_root)
     progress(f"COMPLETE: {job_dir}")
     return job_dir
