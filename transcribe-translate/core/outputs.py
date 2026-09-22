@@ -22,48 +22,39 @@ def _body(segment) -> str:
 def write_outputs(
     transcript: Transcript, translation: str, source_summary: str,
     english_summary: str, analysis_source: str, analysis_translated: str,
-    search_report: dict, directory: Path, source: str,
-    translated: bool = False, target_language: str = "",
+    search_report: dict, qa_answer: str, qa_question: str, qa_language: str,
+    directory: Path, source: str, translated: bool = False, target_language: str = "",
     analysis_created: bool = False, analysis_language: str = "source",
 ) -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "original.txt").write_text(
-        "\n".join(_body(s) for s in transcript.segments) + "\n", encoding="utf-8"
-    )
+    (directory / "original.txt").write_text("\n".join(_body(s) for s in transcript.segments) + "\n", encoding="utf-8")
     (directory / "source_summary.md").write_text(
-        f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n",
-        encoding="utf-8")
+        f"# Source-language summary ({transcript.language or 'detected language'})\n\n{source_summary}\n", encoding="utf-8")
     (directory / "english_summary.md").write_text(
-        "# English summary (translation of source-language summary)\n\n"
-        f"{english_summary}\n", encoding="utf-8")
+        "# English summary (translation of source-language summary)\n\n" + f"{english_summary}\n", encoding="utf-8")
 
     if analysis_created:
         (directory / "analysis_source.md").write_text(
-            "# Source-grounded analysis — original language\n\n" + f"{analysis_source}\n",
-            encoding="utf-8")
-        if analysis_translated:
-            (directory / "analysis.md").write_text(
-                f"# Source-grounded analysis — {analysis_language}\n\n{analysis_translated}\n",
-                encoding="utf-8")
-        else:
-            (directory / "analysis.md").write_text(
-                "# Source-grounded analysis\n\n" + f"{analysis_source}\n",
-                encoding="utf-8")
+            "# Source-grounded analysis — original language\n\n" + f"{analysis_source}\n", encoding="utf-8")
+        (directory / "analysis.md").write_text(
+            f"# Source-grounded analysis — {analysis_language}\n\n"
+            f"{analysis_translated if analysis_translated else analysis_source}\n", encoding="utf-8")
 
-    (directory / "search_report.json").write_text(
-        json.dumps(search_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    (directory / "search_report.json").write_text(json.dumps(search_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if qa_question.strip():
+        (directory / "qa.md").write_text(
+            f"# Transcript-grounded Q&A\n\n**Question:** {qa_question}\n\n"
+            f"**Answer language:** {qa_language}\n\n{qa_answer}\n", encoding="utf-8")
     if translated:
         (directory / "translation.txt").write_text(translation + "\n", encoding="utf-8")
 
     payload = {
-        "source": source, "language": transcript.language,
-        "backend": transcript.backend, "model": transcript.model,
-        "word_timestamps": any(bool(s.words) for s in transcript.segments),
+        "source": source, "language": transcript.language, "backend": transcript.backend,
+        "model": transcript.model, "word_timestamps": any(bool(s.words) for s in transcript.segments),
         "speaker_labels": any(bool(s.speaker) for s in transcript.segments),
         "segments": [asdict(s) for s in transcript.segments],
     }
-    (directory / "original.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (directory / "original.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     srt: list[str] = []
     vtt: list[str] = ["WEBVTT", ""]
@@ -75,22 +66,13 @@ def write_outputs(
     (directory / "original.vtt").write_text("\n".join(vtt), encoding="utf-8")
 
     manifest = {
-        "translation_created": translated,
-        "translation_target": target_language if translated else None,
-        "analysis_created": analysis_created,
-        "analysis_language": analysis_language if analysis_created else None,
-        "search_report_created": True,
+        "translation_created": translated, "translation_target": target_language if translated else None,
+        "analysis_created": analysis_created, "analysis_language": analysis_language if analysis_created else None,
+        "search_report_created": True, "qa_created": bool(qa_question.strip()),
         "word_timestamps_available": any(bool(s.words) for s in transcript.segments),
         "speaker_labels_available": any(bool(s.speaker) for s in transcript.segments),
-        "primary_outputs": [
-            "original.txt", "original.json", "original.srt", "original.vtt",
-            "source_summary.md", "english_summary.md"
-        ],
-        "analysis_outputs": (
-            ["analysis_source.md", "analysis.md", "search_report.json"]
-            if analysis_created else ["search_report.json"]
-        ),
-        "optional_outputs": ["translation.txt"] if translated else [],
+        "primary_outputs": ["original.txt","original.json","original.srt","original.vtt","source_summary.md","english_summary.md"],
+        "analysis_outputs": (["analysis_source.md","analysis.md","search_report.json"] if analysis_created else ["search_report.json"]),
+        "optional_outputs": ([ "translation.txt" ] if translated else []) + ([ "qa.md" ] if qa_question.strip() else []),
     }
-    (directory / "output_manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (directory / "output_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
