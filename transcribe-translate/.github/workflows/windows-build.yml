@@ -1,0 +1,31 @@
+name: Windows build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        shell: pwsh
+        run: python -m pip install -r transcribe-translate/requirements.txt pyinstaller
+      - name: Compile and import check
+        shell: pwsh
+        run: |
+          Set-Location transcribe-translate
+          python -m compileall .
+          python -c "from core.pipeline import run_job; from core.diarization import diarize_audio; from core.batch import run_batch; print('CORE IMPORTS OK')"
+      - name: Build
+        shell: pwsh
+        run: |
+          Set-Location transcribe-translate
+          pyinstaller --noconfirm --clean --onedir --windowed --name SS-Transcribe-Translate --collect-all sherpa_onnx --collect-all faster_whisper --collect-all ctranslate2 app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SS-Transcribe-Translate-Windows
+          path: transcribe-translate/dist/SS-Transcribe-Translate/
