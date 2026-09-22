@@ -13,10 +13,9 @@ from .search import build_search_report
 from .text import OllamaTextProvider, model_advice
 
 LANGUAGE_NAMES = {
-    "ca": "Catalan", "es": "Spanish", "en": "English",
-    "fr": "French", "de": "German", "it": "Italian",
-    "nl": "Dutch", "pt": "Portuguese", "pl": "Polish",
-    "ru": "Russian", "uk": "Ukrainian",
+    "ca": "Catalan", "es": "Spanish", "en": "English", "fr": "French",
+    "de": "German", "it": "Italian", "nl": "Dutch", "pt": "Portuguese",
+    "pl": "Polish", "ru": "Russian", "uk": "Ukrainian",
 }
 
 def timestamped_transcript(transcript) -> str:
@@ -47,7 +46,6 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     media = prepare_media(source, work, cfg.ytdlp_path)
     media_hash = sha256_file(media)
     progress(f"Input SHA-256: {media_hash}")
-
     progress("Extracting 16 kHz mono audio...")
     audio = extract_audio(media, work / "audio.wav")
 
@@ -74,46 +72,47 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     source_summary = provider.summarize_source(transcript.text, source_name)
     english_summary = provider.translate_summary_to_english(source_summary, source_name)
 
+    timestamped = timestamped_transcript(transcript)
     analysis_source = ""
     analysis_translated = ""
     if cfg.analysis:
-        analysis_source = provider.analyze_source(timestamped_transcript(transcript), source_name)
+        analysis_source = provider.analyze_source(timestamped, source_name)
         if cfg.analysis_language.strip().lower() not in ("", "source", source_name.lower()):
-            analysis_translated = provider.translate(
-                analysis_source, cfg.analysis_language, purpose="analysis"
-            )
+            analysis_translated = provider.translate(analysis_source, cfg.analysis_language, purpose="analysis")
 
     search_report = build_search_report(transcript, cfg.search_query, cfg.top_terms)
+
+    qa_answer = ""
+    if cfg.qa_question.strip():
+        qa_answer = provider.ask_transcript(timestamped, cfg.qa_question.strip(), cfg.qa_language.strip() or "English")
 
     translation = ""
     if cfg.translate_transcript:
         translation = provider.translate(transcript.text, cfg.target_language, purpose="transcript")
 
     write_outputs(
-        transcript, translation, source_summary, english_summary,
-        analysis_source, analysis_translated, search_report, job_dir, source,
+        transcript, translation, source_summary, english_summary, analysis_source, analysis_translated,
+        search_report, qa_answer, cfg.qa_question, cfg.qa_language, job_dir, source,
         translated=cfg.translate_transcript, target_language=cfg.target_language,
         analysis_created=cfg.analysis, analysis_language=cfg.analysis_language,
     )
 
     tier, advice = model_advice(cfg.ollama_model)
     metadata = {
-        "source": source, "input_media_sha256": media_hash,
-        "language": transcript.language, "asr_backend": transcript.backend,
-        "asr_model": transcript.model, "word_timestamps": cfg.word_timestamps,
-        "hotwords": cfg.hotwords, "text_provider": "ollama", "text_model": cfg.ollama_model,
+        "source": source, "input_media_sha256": media_hash, "language": transcript.language,
+        "asr_backend": transcript.backend, "asr_model": transcript.model,
+        "word_timestamps": cfg.word_timestamps, "hotwords": cfg.hotwords,
+        "text_provider": "ollama", "text_model": cfg.ollama_model,
         "ollama_model_advice": {"tier": tier, "note": advice},
         "source_summary": "generated from original-language transcript",
         "english_summary": "translation of source-language summary",
         "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
         "analysis_language": cfg.analysis_language if cfg.analysis else None,
         "search_query": cfg.search_query, "search_match_count": search_report["match_count"],
-        "diarization": {
-            "enabled": cfg.diarization,
-            "used": diarization_used,
-            "segmentation_model": cfg.diarization_segmentation_model if cfg.diarization else None,
-            "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None,
-        },
+        "qa_question": cfg.qa_question, "qa_language": cfg.qa_language,
+        "diarization": {"enabled": cfg.diarization, "used": diarization_used,
+                        "segmentation_model": cfg.diarization_segmentation_model if cfg.diarization else None,
+                        "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None},
         "full_transcript_translation": cfg.translate_transcript,
         "target_language": cfg.target_language if cfg.translate_transcript else None,
         "api_cost": "0: no OpenAI API calls are made by this application",
