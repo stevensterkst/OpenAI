@@ -94,17 +94,30 @@ def find_ytdlp_command(configured: str = "", progress=print) -> list[str]:
             pass
         raise
 
+def find_js_runtime() -> str | None:
+    candidates=[
+        shutil.which("deno"),
+        str(Path(__file__).resolve().parents[1]/"runtime"/"deno.exe"),
+        shutil.which("node"),
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file() or candidate and shutil.which(candidate):
+            return candidate
+    return None
+
 def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
     work.mkdir(parents=True, exist_ok=True)
     if is_url(source):
         ytdlp_command = find_ytdlp_command(ytdlp_path)
         output = work / "%(id)s.%(ext)s"
         ffmpeg = find_ffmpeg()
+        js_runtime = find_js_runtime()
         command = [
             *ytdlp_command, "--no-playlist", "--no-warnings",
             "-f", "bestvideo*+bestaudio/best",
             "--merge-output-format", "mp4",
             "--ffmpeg-location", str(Path(ffmpeg).parent),
+            *(["--js-runtimes", f"deno:{js_runtime}"] if js_runtime and Path(js_runtime).name.lower() == "deno.exe" else ["--js-runtimes", f"node:{js_runtime}"] if js_runtime else []),
             "--print", "after_move:filepath",
             "-o", str(output), source,
         ]
