@@ -16,6 +16,17 @@ from core.watch import watch_folder
 from core.text import OllamaTextProvider, model_advice
 from core.query import TranscriptQuery
 
+def set_windows_app_identity():
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SS.TranscribeTranslate.Local")
+    except Exception:
+        pass
+
+set_windows_app_identity()
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
