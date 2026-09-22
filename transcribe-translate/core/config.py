@@ -31,11 +31,41 @@ class AppConfig:
     output_dir: str = "output"
     ytdlp_path: str = ""
 
+def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
+    path = path or (ROOT / "config.local.json")
+    payload = {
+        "text": {
+            "ollama_model": config.ollama_model,
+            "analysis_language": config.analysis_language,
+            "target_language": config.target_language,
+            "translate_transcript": config.translate_transcript,
+            "analysis": config.analysis,
+        },
+        "analysis": {"search_query": config.search_query, "top_terms": config.top_terms},
+        "qa": {"question": config.qa_question, "language": config.qa_language},
+        "diarization": {
+            "enabled": config.diarization,
+            "segmentation_model": config.diarization_segmentation_model,
+            "embedding_model": config.diarization_embedding_model,
+            "num_speakers": config.diarization_num_speakers,
+            "cluster_threshold": config.diarization_threshold,
+        },
+        "paths": {"output_dir": config.output_dir, "ytdlp_path": config.ytdlp_path},
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
 def load_config(path: Path | None = None) -> AppConfig:
     path = path or (ROOT / "config.json")
     data: dict[str, Any] = {}
     if path.exists():
         data = json.loads(path.read_text(encoding="utf-8"))
+    local_path = path.with_name("config.local.json")
+    if local_path.exists():
+        local_data = json.loads(local_path.read_text(encoding="utf-8"))
+        for section in ("asr", "text", "analysis", "qa", "diarization", "paths"):
+            if isinstance(local_data.get(section), dict):
+                data.setdefault(section, {}).update(local_data[section])
     asr, text, analysis, qa, diar, paths = (
         data.get("asr", {}), data.get("text", {}), data.get("analysis", {}),
         data.get("qa", {}), data.get("diarization", {}), data.get("paths", {})
