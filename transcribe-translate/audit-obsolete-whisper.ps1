@@ -21,8 +21,12 @@ foreach ($t in $targets) {
     $bytes = ($files | Measure-Object Length -Sum).Sum
     $dir = Get-Item $p
     [pscustomobject]@{
-      Path=$p; MB=[math]::Round($bytes/1MB,1); GB=[math]::Round($bytes/1GB,3)
-      Files=$files.Count; CreationTime=$dir.CreationTime; LastWriteTime=$dir.LastWriteTime
+      Path=$p
+      MB=[math]::Round($bytes/1MB,1)
+      GB=[math]::Round($bytes/1GB,3)
+      Files=$files.Count
+      CreationTime=$dir.CreationTime
+      LastWriteTime=$dir.LastWriteTime
     }
   }
 }
@@ -46,7 +50,7 @@ Get-ChildItem "$env:LOCALAPPDATApipcache" -Recurse -File -Force -ErrorAction Sil
 
 Write-Host ""
 Write-Host "=== HUGGING FACE CACHE TOP 50 FILES ===" -ForegroundColor Yellow
-$hf = "$env:USERPROFILE.cachehuggingface"
+$hf = Join-Path $env:USERPROFILE ".cachehuggingface"
 if (Test-Path $hf) {
   Get-ChildItem $hf -Recurse -File -Force -ErrorAction SilentlyContinue |
     Sort-Object Length -Descending |
@@ -61,4 +65,4 @@ Get-ChildItem $repo -Recurse -File -Include *.py,*.ps1,*.bat,*.toml,*.txt -Error
   Select-Object Path,LineNumber,Line
 
 Write-Host ""
-Write-Host "AUDIT COMPLETE — this script made no changes." -ForegroundColor Green
+Write-Host "AUDIT COMPLETE - this script made no changes." -ForegroundColor Green
