@@ -72,7 +72,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     path = path or (ROOT / "config.json")
     data: dict[str, Any] = {}
     if path.exists():
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     local_path = path.with_name("config.local.json")
     if local_path.exists():
         local_data = json.loads(local_path.read_text(encoding="utf-8"))
