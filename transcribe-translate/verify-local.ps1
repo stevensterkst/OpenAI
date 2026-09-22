@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 Write-Host "=== SS Transcribe-Translate — REAL LOCAL VERIFICATION ===" -ForegroundColor Cyan
+Write-Host "Application directory: $PSScriptRoot"
 Write-Host "Media: $Media"
 
 if (-not (Test-Path $Media -PathType Leaf)) { throw "Media file does not exist: $Media" }
@@ -15,7 +16,7 @@ if (-not (Test-Path $Media -PathType Leaf)) { throw "Media file does not exist: 
 python -c "import faster_whisper, ctranslate2, requests; print('Python packages: OK'); print('faster-whisper', getattr(faster_whisper,'__version__','installed')); print('ctranslate2', getattr(ctranslate2,'__version__','installed'))"
 
 $ff = Get-Command ffmpeg -ErrorAction SilentlyContinue
-if (-not $ff) { throw "FFmpeg is not on PATH." }
+if (-not $ff) { throw "FFmpeg is not on PATH. Configure PATH or use the application's existing FFmpeg path before testing." }
 Write-Host "FFmpeg: $($ff.Source)" -ForegroundColor Green
 
 $ollama = Invoke-RestMethod "http://127.0.0.1:11434/api/tags"
@@ -23,14 +24,12 @@ $models = @($ollama.models | ForEach-Object { $_.name })
 if ($models.Count -eq 0) { throw "Ollama is reachable but reports no installed models." }
 Write-Host "Ollama models: $($models -join ', ')" -ForegroundColor Green
 
-$preferred = @("phi4-mini:3.8b","qwen3:1.7b","llama3.2:1b","gemma3:1b")
 if ($OllamaModel) {
   if ($models -notcontains $OllamaModel) { throw "Requested Ollama model is not installed: $OllamaModel" }
   $chosen = $OllamaModel
 } else {
-  $chosen = $preferred | Where-Object { $models -contains $_ } | Select-Object -First 1
+  throw "Choose the exact Ollama model for this verification with -OllamaModel. The application does not designate Phi, Qwen, Llama or Gemma as a hidden default."
 }
-if (-not $chosen) { throw "None of the known Ollama models is installed. Pass -OllamaModel explicitly." }
 Write-Host "Verification Ollama model: $chosen" -ForegroundColor Green
 
 $requiredFiles = @(
