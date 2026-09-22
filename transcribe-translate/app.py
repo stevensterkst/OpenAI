@@ -48,6 +48,7 @@ class App(tk.Tk):
         self.qa_language = tk.StringVar(value="English")
         self.word_timestamps = tk.BooleanVar(value=True)
         self.translate_transcript = tk.BooleanVar(value=False)
+        self.keep_media = tk.BooleanVar(value=initial.keep_media)
         self.analysis = tk.BooleanVar(value=True)
         self.diarization = tk.BooleanVar(value=initial.diarization)
         self.diarization_segmentation_model = tk.StringVar(value=initial.diarization_segmentation_model)
@@ -69,13 +70,13 @@ class App(tk.Tk):
         ttk.Label(root, text="PRIMARY: local source transcript + source-language summary. English summary is only a translation. Full translation and analysis are optional.").pack(anchor="w", pady=(0,14))
 
         box = ttk.LabelFrame(root, text="Input", padding=10); box.pack(fill="x")
-        ttk.Label(box, text="Local media file or YouTube URL").grid(row=0,column=0,sticky="w")
+        ttk.Label(box, text="Local audio/video file or supported media URL").grid(row=0,column=0,sticky="w")
         ttk.Entry(box,textvariable=self.source).grid(row=1,column=0,sticky="ew",padx=(0,8))
         ttk.Button(box,text="Browse…",command=self.browse).grid(row=1,column=1)
-        ttk.Label(box,text="Existing yt-dlp command (YouTube only)").grid(row=2,column=0,sticky="w",pady=(8,0))
+        ttk.Label(box,text="Existing yt-dlp executable (for supported web URLs)").grid(row=2,column=0,sticky="w",pady=(8,0))
         ttk.Entry(box,textvariable=self.ytdlp_path).grid(row=3,column=0,sticky="ew",padx=(0,8))
         ttk.Button(box,text="Browse yt-dlp…",command=self.browse_ytdlp).grid(row=3,column=1)
-        ttk.Label(box,text="Auto-detected from standalone yt-dlp.exe or the existing local Python yt-dlp package; the app does not modify either.").grid(row=4,column=0,columnspan=2,sticky="w")
+        ttk.Label(box,text="Used only for web URLs; existing local yt-dlp is detected and never modified.").grid(row=4,column=0,columnspan=2,sticky="w")
         box.columnconfigure(0,weight=1)
 
         opts = ttk.LabelFrame(root,text="Processing",padding=10); opts.pack(fill="x",pady=10)
@@ -130,8 +131,10 @@ class App(tk.Tk):
 
         ttk.Label(opts,text="Cost").grid(row=10,column=2,sticky="w",padx=(28,8))
         ttk.Label(opts,text="Core processing: $0 / €0 paid API. Optional OpenAI queries are user-triggered and can incur API charges.").grid(row=10,column=3,columnspan=2,sticky="w")
-        ttk.Label(opts,text="Output").grid(row=11,column=0,sticky="w",pady=(8,0))
-        ttk.Entry(opts,textvariable=self.output).grid(row=11,column=1,columnspan=4,sticky="ew",pady=(8,0)); opts.columnconfigure(3,weight=1)
+        ttk.Checkbutton(opts,text="Keep source/downloaded media and extracted audio files (default OFF)",variable=self.keep_media).grid(row=11,column=0,columnspan=2,sticky="w",pady=(8,0))
+        ttk.Label(opts,text="Default: only transcript/text outputs are retained.").grid(row=11,column=2,columnspan=3,sticky="w",pady=(8,0))
+        ttk.Label(opts,text="Output").grid(row=12,column=0,sticky="w",pady=(8,0))
+        ttk.Entry(opts,textvariable=self.output).grid(row=12,column=1,columnspan=4,sticky="ew",pady=(8,0)); opts.columnconfigure(3,weight=1)
 
         actions=ttk.Frame(root); actions.pack(fill="x",pady=8)
         ttk.Button(actions,text="START",command=self.start).pack(side="left")
@@ -360,11 +363,12 @@ class App(tk.Tk):
 
     def start(self):
         source=self.source.get().strip(); model=self.ollama_model.get().strip()
-        if not source: messagebox.showerror("Input required","Choose a media file or paste a YouTube URL."); return
+        if not source: messagebox.showerror("Input required","Choose a local audio/video file or paste a supported media URL."); return
         if not model: messagebox.showerror("Ollama required","No Ollama model is available. Start Ollama and click Refresh models."); return
         cfg=load_config(ROOT/"config.json")
         cfg.language=self.language.get().strip() or "auto"; cfg.local_model=self.model.get(); cfg.ollama_model=model
         cfg.ytdlp_path=self.ytdlp_path.get().strip()
+        cfg.keep_media=self.keep_media.get()
         if is_url(source):
             command = self.detect_ytdlp()
             if not command:
