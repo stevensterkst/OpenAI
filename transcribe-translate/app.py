@@ -50,7 +50,9 @@ class App(tk.Tk):
         ttk.Button(box,text="Browse…",command=self.browse).grid(row=1,column=1); box.columnconfigure(0,weight=1)
 
         opts = ttk.LabelFrame(root,text="Processing",padding=10); opts.pack(fill="x",pady=10)
-        self.combo(opts,"Source language",self.language,["auto","ca","es","en","fr","de","it","nl","pt","pl","ru","uk"],0,0)
+        ttk.Label(opts,text="Source language (auto or ISO code)").grid(row=0,column=0,sticky="w",pady=3)
+        ttk.Entry(opts,textvariable=self.language,width=24).grid(row=0,column=1,sticky="w",pady=3)
+        ttk.Label(opts,text="Use auto or any Whisper-supported ISO language code.").grid(row=0,column=2,columnspan=3,sticky="w",padx=(28,0))
         self.combo(opts,"Whisper model",self.model,["tiny","base","small","medium","large-v3"],1,0)
 
         ttk.Label(opts,text="Ollama model").grid(row=0,column=2,sticky="w",padx=(28,8))
