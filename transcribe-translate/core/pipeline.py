@@ -8,6 +8,7 @@ from .asr import FasterWhisperASR
 from .config import AppConfig
 from .media import extract_audio, prepare_media, is_url
 from .outputs import write_outputs
+from .search import build_search_report
 from .text import OllamaTextProvider, model_advice
 
 LANGUAGE_NAMES = {
@@ -49,12 +50,8 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     audio = extract_audio(media, work / "audio.wav")
 
     transcript = FasterWhisperASR(
-        cfg.local_model,
-        cfg.language,
-        cfg.compute_type,
-        hotwords=cfg.hotwords,
-        word_timestamps=cfg.word_timestamps,
-        progress=progress,
+        cfg.local_model, cfg.language, cfg.compute_type,
+        hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
     ).transcribe(audio)
 
     detected_code = transcript.language or cfg.language
@@ -62,31 +59,29 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
 
     provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
-
     source_summary = provider.summarize_source(transcript.text, source_name)
     english_summary = provider.translate_summary_to_english(source_summary, source_name)
 
-    analysis = ""
+    analysis_source = ""
+    analysis_translated = ""
     if cfg.analysis:
-        analysis = provider.analyze_source(timestamped_transcript(transcript), source_name)
+        analysis_source = provider.analyze_source(timestamped_transcript(transcript), source_name)
+        if cfg.analysis_language.strip().lower() not in ("", "source", source_name.lower()):
+            analysis_translated = provider.translate(
+                analysis_source, cfg.analysis_language, purpose="analysis"
+            )
+
+    search_report = build_search_report(transcript, cfg.search_query, cfg.top_terms)
 
     translation = ""
     if cfg.translate_transcript:
-        translation = provider.translate(
-            transcript.text, cfg.target_language, purpose="transcript"
-        )
+        translation = provider.translate(transcript.text, cfg.target_language, purpose="transcript")
 
     write_outputs(
-        transcript,
-        translation,
-        source_summary,
-        english_summary,
-        analysis,
-        job_dir,
-        source,
-        translated=cfg.translate_transcript,
-        target_language=cfg.target_language,
-        analysis_created=cfg.analysis,
+        transcript, translation, source_summary, english_summary,
+        analysis_source, analysis_translated, search_report, job_dir, source,
+        translated=cfg.translate_transcript, target_language=cfg.target_language,
+        analysis_created=cfg.analysis, analysis_language=cfg.analysis_language,
     )
 
     tier, advice = model_advice(cfg.ollama_model)
@@ -104,6 +99,9 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         "source_summary": "generated from original-language transcript",
         "english_summary": "translation of source-language summary",
         "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
+        "analysis_language": cfg.analysis_language if cfg.analysis else None,
+        "search_query": cfg.search_query,
+        "search_match_count": search_report["match_count"],
         "full_transcript_translation": cfg.translate_transcript,
         "target_language": cfg.target_language if cfg.translate_transcript else None,
         "api_cost": "0: no OpenAI API calls are made by this application",
