@@ -201,7 +201,7 @@ def _deduplicate_cues(cues: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def scrape_transcript(source: str, requested_language: str = "auto", progress=print):
+def scrape_transcript(source: str, requested_language: str = "auto", progress=print, range_mode: str = "full", range_value: float = 0.0):
     """Return a Transcript-like object from remote captions without downloading media."""
     if not source.lower().startswith(("http://", "https://")):
         return None
@@ -220,6 +220,17 @@ def scrape_transcript(source: str, requested_language: str = "auto", progress=pr
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(source, download=False)
         chosen = _choose_track(info, requested_language)
+        mode = (range_mode or "full").lower().strip()
+        value = float(range_value or 0)
+        if mode not in {"full", "minutes", "percent"}:
+            raise ValueError("range_mode must be full, minutes, or percent")
+        limit = None
+        if value > 0 and mode == "minutes":
+            limit = value * 60.0
+        elif value > 0 and mode == "percent":
+            duration = float(info.get("duration") or 0)
+            if duration > 0:
+                limit = duration * min(value, 100.0) / 100.0
         if not chosen:
             progress("No usable remote caption track found; falling back to local audio transcription.")
             return None
@@ -234,6 +245,10 @@ def scrape_transcript(source: str, requested_language: str = "auto", progress=pr
             return None
 
         dedup = _deduplicate_cues(cues)
+        if limit is not None:
+            dedup = [c for c in dedup if float(c["start"]) < limit]
+            dedup = [dict(c, end=min(float(c["end"]), limit)) for c in dedup]
+            progress(f"Remote transcript limited to first {limit/60:.2f} minutes.")
         segments = [Segment(float(c["start"]), float(c["end"]), c["text"]) for c in dedup]
         text = "\n".join(s.text for s in segments)
         progress(f"REMOTE TRANSCRIPT USED: {lang} {ext} captions; media download and Whisper were skipped.")
