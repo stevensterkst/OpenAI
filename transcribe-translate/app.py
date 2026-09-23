@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 import webbrowser
 import traceback
 
-from core.config import ROOT, load_config, save_local_config
+from core.config import ROOT, default_output_dir, load_config, resolve_output_dir, save_local_config
 from core.media import find_ytdlp_command, is_url
 from core.pipeline import run_job
 from core.batch import discover_media, run_batch
@@ -57,7 +57,7 @@ class App(tk.Tk):
         self.diarization_embedding_model = tk.StringVar(value=initial.diarization_embedding_model)
         self.diarization_num_speakers = tk.IntVar(value=initial.diarization_num_speakers)
         self.diarization_threshold = tk.DoubleVar(value=initial.diarization_threshold)
-        self.output = tk.StringVar(value=str((ROOT / initial.output_dir).resolve() if not Path(initial.output_dir).is_absolute() else initial.output_dir))
+        self.output = tk.StringVar(value=str(resolve_output_dir(initial.output_dir)))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
         self.performance = tk.StringVar(value="Quick")
@@ -420,7 +420,7 @@ class App(tk.Tk):
         cfg.diarization_embedding_model=self.diarization_embedding_model.get().strip(); cfg.diarization_num_speakers=max(0,int(self.diarization_num_speakers.get()))
         cfg.diarization_threshold=float(self.diarization_threshold.get())
         cfg.range_mode=self.range_mode.get().strip() or "full"; cfg.range_value=max(0.0,float(self.range_value.get()))
-        cfg.output_dir=self.output.get().strip() or str(ROOT / "output")
+        cfg.output_dir=str(resolve_output_dir(self.output.get() or default_output_dir()))
         save_local_config(cfg)
         if cfg.diarization and (not cfg.diarization_segmentation_model or not cfg.diarization_embedding_model):
             messagebox.showerror("Diarization models required","Provide both local ONNX model paths before enabling diarization."); return
@@ -435,7 +435,7 @@ class App(tk.Tk):
 
     def open_output(self):
         import os
-        path=Path(self.output.get()); path.mkdir(parents=True,exist_ok=True); os.startfile(path)
+        path=resolve_output_dir(self.output.get()); path.mkdir(parents=True,exist_ok=True); os.startfile(path)
 
 if __name__=="__main__":
     try:
