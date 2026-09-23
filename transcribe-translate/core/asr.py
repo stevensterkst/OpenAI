@@ -32,7 +32,7 @@ class FasterWhisperASR:
     # Bound the decoded WAV passed to faster-whisper. Long recordings can otherwise
     # trigger multi-GB NumPy STFT allocations before inference starts.
     # Keep each decode request comfortably below the RAM ceiling of the Windows PC.
-    CHUNK_SECONDS = 20
+    CHUNK_SECONDS = 45
 
     def __init__(self, model: str, language: str, compute_type: str,
                  hotwords: str = "", word_timestamps: bool = True,
@@ -46,7 +46,7 @@ class FasterWhisperASR:
 
     def _run(self, model, audio, language, vad_filter):
         kwargs = {
-            "language": language, "beam_size": 3,
+            "language": language, "beam_size": 1,
             "vad_filter": vad_filter, "condition_on_previous_text": False,
             "word_timestamps": self.word_timestamps,
         }
@@ -101,7 +101,7 @@ class FasterWhisperASR:
             if (channels, width, rate) != (1, 2, 16000):
                 raise RuntimeError(f"Internal audio format is {rate} Hz, {channels} channel(s), {width*8}-bit; expected 16000 Hz mono 16-bit PCM WAV.")
             self.progress(f"Audio duration: {duration/60:.1f} minutes")
-            model = WhisperModel(self.model_name, device="cpu", compute_type=self.compute_type)
+            model = WhisperModel(self.model_name, device="cpu", compute_type=self.compute_type, cpu_threads=0, num_workers=1)
 
             chunk_frames = self.CHUNK_SECONDS * rate
             ranges = [(start, min(frames, start + chunk_frames)) for start in range(0, frames, chunk_frames)]
