@@ -1,7 +1,7 @@
 param(
   [Parameter(Mandatory=$true)]
   [string]$Media,
-  [string]$OllamaModel = ""
+  [string][string]$OllamaModel = ""
 )
 
 $ErrorActionPreference = "Stop"
