@@ -1,7 +1,7 @@
 param(
   [Parameter(Mandatory=$true)]
   [string]$Media,
-  [string][string]$OllamaModel = ""
+  [string]$OllamaModel = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,6 +80,9 @@ $diar = Get-Content "core/diarization.py" -Raw
 $batch = Get-Content "core/batch.py" -Raw
 $library = Get-Content "core/library.py" -Raw
 $player = Get-Content "core/player.py" -Raw
+python -m unittest discover -s tests -p "test_*.py" -v
+if($LASTEXITCODE -ne 0){ throw "Python unit tests failed." }
+
 $checks = @(
   @($source, "source_summary", "Source-summary stage"),
   @($source, "translate_summary_to_english", "English-summary translation stage"),
@@ -129,10 +132,10 @@ $env:SS_VERIFY_OUTPUT = (Resolve-Path $out).Path
 $runCode | python -
 if ($LASTEXITCODE -ne 0) { throw "The real local pipeline failed." }
 
-$latest = Get-ChildItem $out -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$latest = Get-ChildItem $out -Directory | Where-Object { $_.Name -notlike "_*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $latest) { throw "No output directory was created." }
 
-$expected = @("original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md","search_report.json","job.json","output_manifest.json")
+$expected = @("original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md","search_report.json","job.json","output_manifest.json","analysis.md")
 foreach($name in $expected) {
   $p = Join-Path $latest.FullName $name
   if (-not (Test-Path $p)) { throw "Missing expected output: $name" }
