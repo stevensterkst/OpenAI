@@ -34,14 +34,38 @@ class AppConfig:
     diarization_embedding_model: str = ""
     diarization_num_speakers: int = 0
     diarization_threshold: float = 0.5
-    output_dir: str = "output"
+    output_dir: str = "~/Downloads/Transcribe-Translate"
     ytdlp_path: str = ""
     keep_media: bool = False
     range_mode: str = "full"  # full | minutes | percent
     range_value: float = 0.0
 
+def default_output_dir() -> Path:
+    """Return the user's content directory, outside the application/source tree."""
+    return Path.home() / "Downloads" / "Transcribe-Translate"
+
+def resolve_output_dir(value: str | Path | None) -> Path:
+    """Resolve output paths and migrate the old repository/installation locations."""
+    if value is None or not str(value).strip():
+        return default_output_dir()
+    raw = str(value).strip()
+    normalized = raw.replace("\\", "/").rstrip("/").lower()
+    legacy_exact = {
+        "output",
+        str((ROOT / "output").resolve()).replace("\\", "/").rstrip("/").lower(),
+        "f:/g/record-transcribe/transcripciones",
+        "c:/program files/transcribe-translate",
+    }
+    if normalized in legacy_exact:
+        return default_output_dir()
+    p = Path(raw).expanduser()
+    if not p.is_absolute():
+        return default_output_dir() if p.name.lower() == "output" else (ROOT / p).resolve()
+    return p
+
 def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
     path = path or (ROOT / "config.local.json")
+    config.output_dir = str(resolve_output_dir(config.output_dir))
     payload = {
         "asr": {
             "local_model": config.local_model,
@@ -100,7 +124,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         diarization_embedding_model=str(diar.get("embedding_model", "")),
         diarization_num_speakers=int(diar.get("num_speakers", 0)),
         diarization_threshold=float(diar.get("cluster_threshold", 0.5)),
-        output_dir=paths.get("output_dir", "output"), ytdlp_path=paths.get("ytdlp_path", ""),
+        output_dir=str(resolve_output_dir(paths.get("output_dir"))), ytdlp_path=paths.get("ytdlp_path", ""),
         keep_media=bool(paths.get("keep_media", False)),
         range_mode=str(data.get("range", {}).get("mode", "full")).lower(),
         range_value=float(data.get("range", {}).get("value", 0.0)),
