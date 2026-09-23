@@ -33,4 +33,4 @@ Write-Host "Start shortcut ready:"
 Write-Host $shortcut
 Write-Host ""
 Write-Host "The single application launcher is START-APP.vbs."
-Write-Host "If Windows does not refresh the existing taskbar pin automatically, unpin the old Transcription icon and pin SS Transcribe-Translate from Start.";
+Write-Host "If Windows keeps the old pin, this installer cannot rewrite an arbitrary pinned shortcut; unpin the old icon and pin the new SS Transcribe-Translate shortcut once."
