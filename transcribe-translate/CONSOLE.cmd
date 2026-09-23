@@ -20,6 +20,6 @@ choice /C 123456 /N /M "Select: "
 if errorlevel 6 exit /b 0
 if errorlevel 5 start "" explorer "%CD%" & goto menu
 if errorlevel 4 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%CD%\build-exe.ps1" & pause & goto menu
-if errorlevel 3 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%CD%\verify-local.ps1" & pause & goto menu
+if errorlevel 3 set /p "MEDIA=Full path to test audio/video: " & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%CD%\verify-local.ps1" -Media "%MEDIA%" & pause & goto menu
 if errorlevel 2 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%CD%\verify-final.ps1" & pause & goto menu
 if errorlevel 1 start "" "%CD%\dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe" & goto menu
