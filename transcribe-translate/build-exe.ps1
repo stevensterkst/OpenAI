@@ -12,7 +12,32 @@ if(-not $pyi){
   }
 }
 
-Remove-Item -Recurse -Force build,dist -ErrorAction SilentlyContinue
+# Stop a previously launched copy of this application before replacing its bundled DLL/PYD files.
+$running = Get-Process -Name "SS-Transcribe-Translate" -ErrorAction SilentlyContinue
+if($running){
+  Write-Host "A previous SS-Transcribe-Translate instance is running; closing it for a clean rebuild..."
+  $running | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 800
+}
+# Remove old build outputs. Retry because Windows can briefly retain a DLL/PYD handle after process exit.
+foreach($target in @("build","dist")){
+  if(Test-Path $target){
+    $removed=$false
+    for($attempt=1;$attempt -le 5;$attempt++){
+      try {
+        Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
+        $removed=$true
+        break
+      } catch {
+        if($attempt -eq 5){
+          throw "Cannot remove '$target'. A process (possibly antivirus/indexing software) is still locking a build file. Close SS-Transcribe-Translate and retry. Original error: $($_.Exception.Message)"
+        }
+        Start-Sleep -Milliseconds (500 * $attempt)
+      }
+    }
+    if(!$removed){throw "Failed to remove old $target directory."}
+  }
+}
 & $py -m PyInstaller --noconfirm --clean --onedir --windowed --name "SS-Transcribe-Translate" --collect-all sherpa_onnx --collect-all faster_whisper --collect-all ctranslate2 app.py
 if($LASTEXITCODE){throw "PyInstaller build failed."}
 
