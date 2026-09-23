@@ -14,17 +14,17 @@ else:
 
 @dataclass
 class AppConfig:
-    local_model: str = "small"
+    local_model: str = "base"
     language: str = "auto"
     compute_type: str = "int8"
-    word_timestamps: bool = True
+    word_timestamps: bool = False
     hotwords: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
     analysis_language: str = "source"
     target_language: str = "English"
     translate_transcript: bool = False
-    analysis: bool = True
+    analysis: bool = False
     search_query: str = ""
     top_terms: int = 30
     qa_question: str = ""
