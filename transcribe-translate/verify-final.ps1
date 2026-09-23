@@ -62,8 +62,24 @@ print("runtime imports OK")
     if($f -notmatch [regex]::Escape($feature.Value[1])){throw "Required feature missing: $($feature.Key)"}
   }
   $ui=Get-Content app.py -Raw
-  foreach($control in @("Source language","Whisper model","Ollama model","Word timestamps","Source-grounded analysis","Analysis language","Transcript-grounded Q&A","Target language","Translate transcript","Speaker diarization","Batch","Library","Watch","range_mode","range_value")){
-    if($ui -notmatch [regex]::Escape($control)){throw "Required GUI control/feature marker missing: $control"}
+  $uiChecks=@{
+    "Source language"="Source language"
+    "Whisper model"="Whisper model"
+    "Ollama model"="Ollama model"
+    "Word timestamps"="word-level timestamps"
+    "Source-grounded analysis"="source-grounded meeting/evidence analysis"
+    "Analysis language"="Analysis language"
+    "Transcript-grounded Q&A"="Transcript-grounded Q&A"
+    "Target language"="Target language"
+    "Full transcript translation"="translate the FULL source transcript"
+    "Speaker diarization"="speaker diarization"
+    "Batch"="Batch folder"
+    "Library"="Library"
+    "Watch"="Watch folder"
+    "Transcription range"="Transcription range"
+  }
+  foreach($name in $uiChecks.Keys){
+    if($ui -notmatch [regex]::Escape($uiChecks[$name])){throw "Required GUI control/feature marker missing: $name"}
   }
   $out=Get-Content core/outputs.py -Raw
   foreach($artifact in @("original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md","output_manifest.json","translation.txt","analysis_source.md","analysis.md","qa.md","search_report.json")){
