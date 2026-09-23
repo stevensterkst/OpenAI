@@ -24,6 +24,15 @@ sc.IconLocation = fso.BuildPath(root, "SS-Transcribe-Translate.ico")
 If Not fso.FileExists(fso.BuildPath(root, "SS-Transcribe-Translate.ico")) Then sc.IconLocation = sh.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\SHELL32.dll,167"
 sc.Save()
 
+Dim consoleShortcutPath, csc
+consoleShortcutPath = fso.BuildPath(startDir, "SS Transcribe-Translate - Console.lnk")
+Set csc = ws.CreateShortcut(consoleShortcutPath)
+csc.TargetPath = fso.BuildPath(root, "CONSOLE.cmd")
+csc.WorkingDirectory = root
+csc.Description = "SS Transcribe-Translate console: start, audit, verify and build"
+csc.IconLocation = sh.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\cmd.exe,0"
+csc.Save()
+
 taskbarDir = fso.BuildPath(sh.ExpandEnvironmentStrings("%APPDATA%"), "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
 If fso.FolderExists(taskbarDir) Then
   For Each legacy In fso.GetFolder(taskbarDir).Files
