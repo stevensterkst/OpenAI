@@ -39,6 +39,17 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+def _range_seconds(cfg: AppConfig, duration: float) -> float | None:
+    mode = (cfg.range_mode or "full").lower().strip()
+    value = float(cfg.range_value or 0)
+    if mode == "full" or value <= 0:
+        return None
+    if mode == "minutes":
+        return min(duration, value * 60.0)
+    if mode == "percent":
+        return min(duration, duration * min(value, 100.0) / 100.0)
+    raise ValueError("range_mode must be full, minutes, or percent")
+
 def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     stem = Path(source).stem[:80] if not is_url(source) else "web-media"
@@ -47,7 +58,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     work.mkdir(parents=True, exist_ok=True)
 
     try:
-        transcript = scrape_transcript(source, cfg.language, progress) if is_url(source) else None
+        transcript = scrape_transcript(source, cfg.language, progress, cfg.range_mode, cfg.range_value) if is_url(source) else None
         media = None
         media_hash = None
         if transcript is None:
@@ -56,7 +67,20 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
             media_hash = sha256_file(media)
             progress(f"Input SHA-256: {media_hash}")
             progress("Extracting 16 kHz mono audio...")
-            audio = extract_audio(media, work / "audio.wav")
+            limit = None
+            if cfg.range_mode == "minutes" and cfg.range_value > 0:
+                limit = cfg.range_value * 60.0
+            elif cfg.range_mode == "percent" and cfg.range_value > 0:
+                import subprocess, re
+                from .media import find_ffmpeg, WINDOWS_NO_CONSOLE
+                probe = subprocess.run([find_ffmpeg(), "-i", str(media)], capture_output=True, text=True, encoding="utf-8", errors="replace", **WINDOWS_NO_CONSOLE)
+                match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", probe.stderr or "")
+                if match:
+                    total = int(match.group(1))*3600 + int(match.group(2))*60 + float(match.group(3))
+                    limit = total * min(float(cfg.range_value), 100.0) / 100.0
+            if limit is not None:
+                progress(f"TRANSCRIPTION RANGE: first {limit/60:.2f} minutes only")
+            audio = extract_audio(media, work / "audio.wav", limit)
 
             transcript = FasterWhisperASR(
                 cfg.local_model, cfg.language, cfg.compute_type,
@@ -133,6 +157,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
                             "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None},
             "full_transcript_translation": cfg.translate_transcript,
             "target_language": cfg.target_language if cfg.translate_transcript else None,
+            "range": {"mode": cfg.range_mode, "value": cfg.range_value},
             "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
         }
         (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
