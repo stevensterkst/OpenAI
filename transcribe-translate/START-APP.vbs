@@ -28,9 +28,17 @@ taskbarDir = fso.BuildPath(sh.ExpandEnvironmentStrings("%APPDATA%"), "Microsoft\
 If fso.FolderExists(taskbarDir) Then
   For Each legacy In fso.GetFolder(taskbarDir).Files
     If LCase(fso.GetExtensionName(legacy.Name)) = "lnk" Then
-      If LCase(fso.GetBaseName(legacy.Name)) = "transcription" Or _
-         LCase(fso.GetBaseName(legacy.Name)) = "transcribe-translate" Or _
-         LCase(fso.GetBaseName(legacy.Name)) = "ss transcribe-translate" Then
+      Dim legacyTarget, legacyBase
+      legacyBase = LCase(fso.GetBaseName(legacy.Name))
+      legacyTarget = ""
+      On Error Resume Next
+      legacyTarget = LCase(ws.CreateShortcut(legacy.Path).TargetPath)
+      On Error GoTo 0
+      If legacyBase = "transcription" Or _
+         legacyBase = "transcribe-translate" Or _
+         legacyBase = "ss transcribe-translate" Or _
+         InStr(legacyTarget, "transcribe-translate.ps1") > 0 Or _
+         InStr(legacyTarget, "start-app.cmd") > 0 Then
         On Error Resume Next
         fso.CopyFile shortcutPath, legacy.Path, True
         On Error GoTo 0
