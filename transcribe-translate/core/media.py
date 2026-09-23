@@ -160,13 +160,13 @@ def prepare_media(source: str, work: Path, ytdlp_path: str = "") -> Path:
     shutil.copy2(media, destination)
     return destination
 
-def extract_audio(media: Path, destination: Path) -> Path:
+def extract_audio(media: Path, destination: Path, max_seconds: float | None = None) -> Path:
     ffmpeg = find_ffmpeg()
-    subprocess.run(
-        [ffmpeg, "-y", "-i", str(media), "-vn", "-ac", "1", "-ar", "16000",
-         "-c:a", "pcm_s16le", str(destination)],
-        check=True, **WINDOWS_NO_CONSOLE,
-    )
+    command = [ffmpeg, "-y", "-i", str(media)]
+    if max_seconds is not None:
+        command += ["-t", f"{max_seconds:.3f}"]
+    command += ["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(destination)]
+    subprocess.run(command, check=True, **WINDOWS_NO_CONSOLE)
     if not destination.is_file() or destination.stat().st_size <= 44:
         raise RuntimeError("FFmpeg produced no usable audio track.")
     return destination
