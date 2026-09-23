@@ -48,6 +48,13 @@ If fso.FolderExists(taskbarDir) Then
   Next
 End If
 
+exePath = fso.BuildPath(root, "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe")
+If fso.FileExists(exePath) Then
+  sh.CurrentDirectory = root
+  sh.Run """" & exePath & """", 0, False
+  WScript.Quit 0
+End If
+
 pyCmd = "C:\Python313\pythonw.exe"
 If Not fso.FileExists(pyCmd) Then pyCmd = sh.ExpandEnvironmentStrings("%LocalAppData%") & "\Programs\Python\Python313\pythonw.exe"
 If Not fso.FileExists(pyCmd) Then pyCmd = "pythonw.exe"
