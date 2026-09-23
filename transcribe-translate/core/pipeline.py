@@ -14,6 +14,7 @@ from .search import build_search_report
 from .library import index_job
 from .player import write_player
 from .text import OllamaTextProvider, model_advice
+from .captions import scrape_transcript
 
 LANGUAGE_NAMES = {
     "ca": "Catalan", "es": "Spanish", "en": "English", "fr": "French",
@@ -46,23 +47,29 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
     work.mkdir(parents=True, exist_ok=True)
 
     try:
-        progress("Preparing media...")
-        media = prepare_media(source, work, cfg.ytdlp_path)
-        media_hash = sha256_file(media)
-        progress(f"Input SHA-256: {media_hash}")
-        progress("Extracting 16 kHz mono audio...")
-        audio = extract_audio(media, work / "audio.wav")
+        transcript = scrape_transcript(source, cfg.language, progress) if is_url(source) else None
+        media = None
+        media_hash = None
+        if transcript is None:
+            progress("Preparing media...")
+            media = prepare_media(source, work, cfg.ytdlp_path)
+            media_hash = sha256_file(media)
+            progress(f"Input SHA-256: {media_hash}")
+            progress("Extracting 16 kHz mono audio...")
+            audio = extract_audio(media, work / "audio.wav")
 
-        transcript = FasterWhisperASR(
-            cfg.local_model, cfg.language, cfg.compute_type,
-            hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
-        ).transcribe(audio)
+            transcript = FasterWhisperASR(
+                cfg.local_model, cfg.language, cfg.compute_type,
+                hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
+            ).transcribe(audio)
+        else:
+            progress("Caption/script path selected: no media download and no Whisper ASR required.")
 
         if not transcript.segments or not transcript.text.strip():
             raise RuntimeError("Pipeline safety check: source transcript is empty; downstream AI stages will not run.")
 
         diarization_used = False
-        if cfg.diarization:
+        if cfg.diarization and media is not None:
             diarization_segments = diarize_audio(
                 audio, cfg.diarization_segmentation_model, cfg.diarization_embedding_model,
                 num_speakers=cfg.diarization_num_speakers,
@@ -129,9 +136,11 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
             "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
         }
         (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-        if cfg.keep_media:
+        if cfg.keep_media and media is not None:
             write_player(job_dir, media, job_dir / "original.json")
-            progress("Media retention enabled: source/downloaded media and extracted audio are retained in _work.")
+            progress("Media retention enabled: downloaded/source media and extracted audio are retained in _work.")
+        elif cfg.keep_media:
+            progress("KEEP requested, but this job used a remote caption/script; no media was downloaded to retain.")
         else:
             progress("Text-only retention: deleting downloaded/source media and extracted audio.")
 
