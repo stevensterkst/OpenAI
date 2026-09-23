@@ -37,6 +37,29 @@ print("runtime imports OK")
   if($pipeline -notmatch 'shutil\.rmtree\(work, ignore_errors=True\)'){throw "Temporary media cleanup missing"}
   if($text -notmatch 'api/chat'){throw "Ollama provider missing"}
   Write-Host "PASS: architecture checks"
+  $featureFiles = @{
+    "Caption-first remote transcript path" = @("core/captions.py","scrape_transcript")
+    "Local faster-whisper batched ASR" = @("core/asr.py","BatchedInferencePipeline")
+    "Adaptive ASR batch sizing" = @("core/asr.py","batch_size")
+    "Source-language summary" = @("core/pipeline.py","source_summary")
+    "English summary" = @("core/pipeline.py","english_summary")
+    "Optional translation" = @("core/pipeline.py","translate_summary_to_english")
+    "Ollama local provider" = @("core/text.py","api/chat")
+    "Source-grounded analysis" = @("core/text.py","analysis")
+    "Transcript-grounded Q&A" = @("core/text.py","ask_transcript")
+    "Search/report" = @("core/search.py","search")
+    "Speaker diarization" = @("core/diarization.py","OfflineSpeakerDiarization")
+    "Batch processing" = @("core/batch.py","run_batch")
+    "Persistent library" = @("core/library.py","search_jobs")
+    "Watch folder" = @("core/watch.py","watch_folder")
+    "Synchronized transcript player" = @("core/player.py","write_player")
+    "Structured output manifest" = @("core/outputs.py","output_manifest")
+  }
+  foreach($feature in $featureFiles.GetEnumerator()){
+    $f=Get-Content $feature.Value[0] -Raw
+    if($f -notmatch [regex]::Escape($feature.Value[1])){throw "Required feature missing: $($feature.Key)"}
+  }
+  Write-Host "PASS: agreed feature coverage checks"
 
   & (Join-Path $PSScriptRoot "build-exe.ps1")
   if($LASTEXITCODE){throw "Windows build script FAILED"}
