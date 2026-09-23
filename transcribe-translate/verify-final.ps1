@@ -87,7 +87,7 @@ print("runtime imports OK")
   }
   Write-Host "PASS: agreed feature coverage + GUI/output checks"
   $cfg=Get-Content config.json -Raw
-  if($cfg -notmatch '"range"'){Write-Host "NOTE: tracked config has no range section; runtime defaults to full."}
+  if($cfg -notmatch '"range"'){throw "Tracked config missing range defaults"}
   $app=Get-Content app.py -Raw
   $pipe=Get-Content core/pipeline.py -Raw
   $media=Get-Content core/media.py -Raw
@@ -99,7 +99,7 @@ print("runtime imports OK")
   if((Get-Content tests/test_ranges.py -Raw) -notmatch 'test_first_percent'){throw "Range regression tests missing"}
   $launcher=Get-Content START-APP.vbs -Raw
   if($launcher -match "git -C"){throw "Start launcher must not run git pull on every application launch"}
-  if($launcher -notmatch "SS-Transcribe-Translate\\.exe"){throw "Start launcher does not target packaged EXE"}
+  if($launcher -notmatch 'SS-Transcribe-Translate\.exe'){throw "Start launcher does not target packaged EXE"}
   if((Get-Content START-APP.vbs -Raw) -notmatch 'exePath'){throw "Launcher EXE path declaration missing"}
   if(!(Test-Path "CONSOLE.cmd")){throw "Console launcher missing"}
   if(!(Test-Path "AGENTS.md")){throw "AGENTS.md missing"}
