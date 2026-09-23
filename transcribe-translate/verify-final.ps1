@@ -28,10 +28,8 @@ try {
   if($text -notmatch 'api/chat'){throw "Ollama provider missing"}
   Write-Host "PASS: architecture checks"
 
-  if(Test-Path build){Remove-Item build -Recurse -Force}
-  if(Test-Path dist){Remove-Item dist -Recurse -Force}
-  & (Get-Command python).Source -m PyInstaller --noconfirm --clean --onedir --windowed --name "SS-Transcribe-Translate" --collect-all sherpa_onnx --collect-all faster_whisper --collect-all ctranslate2 app.py
-  if($LASTEXITCODE){throw "PyInstaller FAILED"}
+  & (Join-Path $PSScriptRoot "build-exe.ps1")
+  if($LASTEXITCODE){throw "Windows build script FAILED"}
   $exe=Join-Path $PSScriptRoot "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe"
   if(!(Test-Path $exe)){throw "EXE missing"}
   $bundle=Join-Path $PSScriptRoot "dist\SS-Transcribe-Translate"
