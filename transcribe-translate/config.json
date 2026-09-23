@@ -11,7 +11,7 @@
     "ollama_model": "qwen3:1.7b",
     "analysis_language": "source",
     "translate_transcript": false,
-    "analysis": true,
+    "analysis": false,
     "target_language": "English"
   },
   "analysis": {
