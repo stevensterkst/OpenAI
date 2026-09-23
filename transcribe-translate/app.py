@@ -140,7 +140,8 @@ class App(tk.Tk):
         ttk.Spinbox(rangebox,from_=0,to=100000,increment=1,textvariable=self.range_value,width=12).grid(row=0,column=3,sticky="w",padx=6)
         ttk.Label(rangebox,text="full = entire source; minutes = first N minutes; percent = first N% (e.g. 50 = first half)").grid(row=0,column=4,sticky="w")
         ttk.Label(opts,text="Output").grid(row=13,column=0,sticky="w",pady=(8,0))
-        ttk.Entry(opts,textvariable=self.output).grid(row=13,column=1,columnspan=4,sticky="ew",pady=(8,0))
+        ttk.Entry(opts,textvariable=self.output).grid(row=13,column=1,columnspan=3,sticky="ew",pady=(8,0))
+        ttk.Button(opts,text="Browse...",command=self.browse_output).grid(row=13,column=4,sticky="w",padx=(8,0),pady=(8,0))
         opts.columnconfigure(4,weight=1)
 
         actions=ttk.Frame(root); actions.pack(fill="x",pady=8)
@@ -388,6 +389,12 @@ class App(tk.Tk):
         ttk.Button(bar,text="Open job folder",command=lambda:os.startfile(job_dir)).pack(side="left")
         ttk.Label(top,text="All generated files remain in the job folder. Querying is transcript-grounded; OpenAI is optional and never used automatically.",wraplength=1100).pack(anchor="w")
 
+    def browse_output(self):
+        chosen=filedialog.askdirectory(title="Choose SS Transcribe-Translate output folder",initialdir=str(resolve_output_dir(self.output.get())))
+        if chosen:
+            self.output.set(str(Path(chosen).resolve()))
+            self.status.set("Output folder: "+self.output.get())
+
     def logmsg(self,msg):
         self.after(0,lambda:(self.log.insert("end",msg+"\n"),self.log.see("end"),self.status.set(msg[:150])))
 
@@ -428,8 +435,10 @@ class App(tk.Tk):
 
     def worker(self,source,cfg):
         try:
-            output=run_job(source,cfg,Path(self.output.get()),self.logmsg)
-            self.after(0,lambda:messagebox.showinfo("Complete",f"Job finished:\n{output}"))
+            output_root=resolve_output_dir(cfg.output_dir)
+            output=run_job(source,cfg,output_root,self.logmsg)
+            self.after(0,lambda:self.status.set("Saved to: "+str(output)))
+            self.after(0,lambda:messagebox.showinfo("Complete",f"Job finished.\n\nSaved to:\n{output}"))
         except Exception as exc:
             self.logmsg("ERROR: "+str(exc)); self.after(0,lambda:messagebox.showerror("Processing failed",str(exc))); self.after(0,lambda:self.status.set("Failed"))
 
