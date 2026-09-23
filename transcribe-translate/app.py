@@ -61,6 +61,7 @@ class App(tk.Tk):
         self.performance = tk.StringVar(value="Quick")
         self.watch_stop = None
         self._build()
+        self.apply_performance_profile()
         self.refresh_ollama()
         self.detect_ytdlp()
         self.detect_diarization_models()
