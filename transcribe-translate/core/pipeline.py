@@ -40,101 +40,105 @@ def sha256_file(path: Path) -> str:
 
 def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    stem = Path(source).stem[:80] if not is_url(source) else "youtube"
+    stem = Path(source).stem[:80] if not is_url(source) else "web-media"
     job_dir = output_root / f"{stamp}_{stem}"
     work = job_dir / "_work"
     work.mkdir(parents=True, exist_ok=True)
 
-    progress("Preparing media...")
-    media = prepare_media(source, work, cfg.ytdlp_path)
-    media_hash = sha256_file(media)
-    progress(f"Input SHA-256: {media_hash}")
-    progress("Extracting 16 kHz mono audio...")
-    audio = extract_audio(media, work / "audio.wav")
+    try:
+        progress("Preparing media...")
+        media = prepare_media(source, work, cfg.ytdlp_path)
+        media_hash = sha256_file(media)
+        progress(f"Input SHA-256: {media_hash}")
+        progress("Extracting 16 kHz mono audio...")
+        audio = extract_audio(media, work / "audio.wav")
 
-    transcript = FasterWhisperASR(
-        cfg.local_model, cfg.language, cfg.compute_type,
-        hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
-    ).transcribe(audio)
+        transcript = FasterWhisperASR(
+            cfg.local_model, cfg.language, cfg.compute_type,
+            hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
+        ).transcribe(audio)
 
-    if not transcript.segments or not transcript.text.strip():
-        raise RuntimeError("Pipeline safety check: source transcript is empty; downstream AI stages will not run.")
+        if not transcript.segments or not transcript.text.strip():
+            raise RuntimeError("Pipeline safety check: source transcript is empty; downstream AI stages will not run.")
 
-    diarization_used = False
-    if cfg.diarization:
-        diarization_segments = diarize_audio(
-            audio, cfg.diarization_segmentation_model, cfg.diarization_embedding_model,
-            num_speakers=cfg.diarization_num_speakers,
-            threshold=cfg.diarization_threshold, progress=progress,
+        diarization_used = False
+        if cfg.diarization:
+            diarization_segments = diarize_audio(
+                audio, cfg.diarization_segmentation_model, cfg.diarization_embedding_model,
+                num_speakers=cfg.diarization_num_speakers,
+                threshold=cfg.diarization_threshold, progress=progress,
+            )
+            assign_speakers(transcript.segments, diarization_segments)
+            diarization_used = True
+
+        detected_code = transcript.language or cfg.language
+        source_name = LANGUAGE_NAMES.get(detected_code, detected_code or "source language")
+        progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
+
+        provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
+        source_summary = provider.summarize_source(transcript.text, source_name)
+        if not source_summary.strip():
+            raise RuntimeError("Source-language summary returned empty; job stopped.")
+        english_summary = provider.translate_summary_to_english(source_summary, source_name)
+        if not english_summary.strip():
+            raise RuntimeError("English summary translation returned empty; job stopped.")
+
+        timestamped = timestamped_transcript(transcript)
+        analysis_source = ""
+        analysis_translated = ""
+        if cfg.analysis:
+            analysis_source = provider.analyze_source(timestamped, source_name)
+            if cfg.analysis_language.strip().lower() not in ("", "source", source_name.lower()):
+                analysis_translated = provider.translate(analysis_source, cfg.analysis_language, purpose="analysis")
+
+        search_report = build_search_report(transcript, cfg.search_query, cfg.top_terms)
+
+        qa_answer = ""
+        if cfg.qa_question.strip():
+            qa_answer = provider.ask_transcript(timestamped, cfg.qa_question.strip(), cfg.qa_language.strip() or "English")
+
+        translation = ""
+        if cfg.translate_transcript:
+            translation = provider.translate(transcript.text, cfg.target_language, purpose="transcript")
+
+        write_outputs(
+            transcript, translation, source_summary, english_summary, analysis_source, analysis_translated,
+            search_report, qa_answer, cfg.qa_question, cfg.qa_language, job_dir, source,
+            translated=cfg.translate_transcript, target_language=cfg.target_language,
+            analysis_created=cfg.analysis, analysis_language=cfg.analysis_language,
         )
-        assign_speakers(transcript.segments, diarization_segments)
-        diarization_used = True
 
-    detected_code = transcript.language or cfg.language
-    source_name = LANGUAGE_NAMES.get(detected_code, detected_code or "source language")
-    progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
+        tier, advice = model_advice(cfg.ollama_model)
+        metadata = {
+            "source": source, "input_media_sha256": media_hash, "language": transcript.language,
+            "asr_backend": transcript.backend, "asr_model": transcript.model,
+            "word_timestamps": cfg.word_timestamps, "hotwords": cfg.hotwords,
+            "text_provider": "ollama", "text_model": cfg.ollama_model,
+            "ollama_model_advice": {"tier": tier, "note": advice},
+            "source_summary": "generated from original-language transcript",
+            "english_summary": "translation of source-language summary",
+            "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
+            "analysis_language": cfg.analysis_language if cfg.analysis else None,
+            "search_query": cfg.search_query, "search_match_count": search_report["match_count"],
+            "qa_question": cfg.qa_question, "qa_language": cfg.qa_language,
+            "diarization": {"enabled": cfg.diarization, "used": diarization_used,
+                            "segmentation_model": cfg.diarization_segmentation_model if cfg.diarization else None,
+                            "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None},
+            "full_transcript_translation": cfg.translate_transcript,
+            "target_language": cfg.target_language if cfg.translate_transcript else None,
+            "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
+        }
+        (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        if cfg.keep_media:
+            write_player(job_dir, media, job_dir / "original.json")
+            progress("Media retention enabled: source/downloaded media and extracted audio are retained in _work.")
+        else:
+            progress("Text-only retention: deleting downloaded/source media and extracted audio.")
 
-    provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
-    source_summary = provider.summarize_source(transcript.text, source_name)
-    if not source_summary.strip():
-        raise RuntimeError("Source-language summary returned empty; job stopped.")
-    english_summary = provider.translate_summary_to_english(source_summary, source_name)
-    if not english_summary.strip():
-        raise RuntimeError("English summary translation returned empty; job stopped.")
-
-    timestamped = timestamped_transcript(transcript)
-    analysis_source = ""
-    analysis_translated = ""
-    if cfg.analysis:
-        analysis_source = provider.analyze_source(timestamped, source_name)
-        if cfg.analysis_language.strip().lower() not in ("", "source", source_name.lower()):
-            analysis_translated = provider.translate(analysis_source, cfg.analysis_language, purpose="analysis")
-
-    search_report = build_search_report(transcript, cfg.search_query, cfg.top_terms)
-
-    qa_answer = ""
-    if cfg.qa_question.strip():
-        qa_answer = provider.ask_transcript(timestamped, cfg.qa_question.strip(), cfg.qa_language.strip() or "English")
-
-    translation = ""
-    if cfg.translate_transcript:
-        translation = provider.translate(transcript.text, cfg.target_language, purpose="transcript")
-
-    write_outputs(
-        transcript, translation, source_summary, english_summary, analysis_source, analysis_translated,
-        search_report, qa_answer, cfg.qa_question, cfg.qa_language, job_dir, source,
-        translated=cfg.translate_transcript, target_language=cfg.target_language,
-        analysis_created=cfg.analysis, analysis_language=cfg.analysis_language,
-    )
-
-    tier, advice = model_advice(cfg.ollama_model)
-    metadata = {
-        "source": source, "input_media_sha256": media_hash, "language": transcript.language,
-        "asr_backend": transcript.backend, "asr_model": transcript.model,
-        "word_timestamps": cfg.word_timestamps, "hotwords": cfg.hotwords,
-        "text_provider": "ollama", "text_model": cfg.ollama_model,
-        "ollama_model_advice": {"tier": tier, "note": advice},
-        "source_summary": "generated from original-language transcript",
-        "english_summary": "translation of source-language summary",
-        "analysis": "generated from timestamped original-language transcript" if cfg.analysis else None,
-        "analysis_language": cfg.analysis_language if cfg.analysis else None,
-        "search_query": cfg.search_query, "search_match_count": search_report["match_count"],
-        "qa_question": cfg.qa_question, "qa_language": cfg.qa_language,
-        "diarization": {"enabled": cfg.diarization, "used": diarization_used,
-                        "segmentation_model": cfg.diarization_segmentation_model if cfg.diarization else None,
-                        "embedding_model": cfg.diarization_embedding_model if cfg.diarization else None},
-        "full_transcript_translation": cfg.translate_transcript,
-        "target_language": cfg.target_language if cfg.translate_transcript else None,
-        "api_cost": "Core processing is local/Ollama at no OpenAI API cost; optional transcript-workspace OpenAI queries are user-triggered and may incur API charges.",
-    }
-    (job_dir / "job.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    if cfg.keep_media:
-        write_player(job_dir, media, job_dir / "original.json")
-        progress("Media retention enabled: source/downloaded media and extracted audio are retained in _work.")
-    else:
-        progress("Text-only retention: deleting downloaded/source media and extracted audio.")
-        shutil.rmtree(work, ignore_errors=True)
-        progress("Temporary media deleted; only transcript/text outputs remain.")
-    index_job(job_dir, output_root)
-    progress(f"COMPLETE: {job_dir}")
-    return job_dir
+        index_job(job_dir, output_root)
+        progress(f"COMPLETE: {job_dir}")
+        return job_dir
+    finally:
+        if not cfg.keep_media:
+            shutil.rmtree(work, ignore_errors=True)
+            progress("Temporary source media/audio cleaned; text outputs retained.")
