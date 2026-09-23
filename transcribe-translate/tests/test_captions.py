@@ -12,6 +12,8 @@ class CaptionParserTests(unittest.TestCase):
         c=_parse_caption('<timedtext><body><p t="1500" d="2500">Hello <s>world</s></p></body></timedtext>',"srv3")
         self.assertEqual(c[0]["text"],"Hello world")
         self.assertAlmostEqual(c[0]["start"],1.5)
+        c=_parse_caption('<timedtext><body><p t="0" d="1000">Hello   <s>   world   </s></p></body></timedtext>',"srv3")
+        self.assertEqual(c[0]["text"],"Hello world")
     def test_json3(self):
         c=_parse_caption(json.dumps({"events":[{"tStartMs":2000,"dDurationMs":1200,"segs":[{"utf8":"Hello "},{"utf8":"world"}]}]}),"json3")
         self.assertEqual(c[0]["text"],"Hello world")
