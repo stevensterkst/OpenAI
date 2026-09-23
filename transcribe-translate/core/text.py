@@ -4,7 +4,7 @@ import requests
 
 Progress = Callable[[str], None]
 
-def chunk_text(text: str, size: int = 10000) -> list[str]:
+def chunk_text(text: str, size: int = 18000) -> list[str]:
     text = text.strip()
     if not text:
         return [""]
@@ -99,7 +99,7 @@ class OllamaTextProvider:
         )
 
     def analyze_source(self, timestamped_transcript: str, source_language: str) -> str:
-        parts = chunk_text(timestamped_transcript, size=9000)
+        parts = chunk_text(timestamped_transcript, size=14000)
         analyses = []
         for i, part in enumerate(parts, 1):
             self.progress(f"Source-grounded analysis chunk {i}/{len(parts)} [{self.model}]")
