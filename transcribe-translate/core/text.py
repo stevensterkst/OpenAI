@@ -53,13 +53,7 @@ class OllamaTextProvider:
             raise RuntimeError(f"Cannot reach Ollama at {self.url}: {exc}") from exc
 
     def _call(self, prompt: str) -> str:
-        response = requests.post(
-            f"{self.url}/api/chat",
-            json={"model": self.model, "messages": [{"role": "user", "content": prompt}],
-                  "stream": False, "options": {"temperature": 0}},
-            timeout=3600,
-        )
-        if response.status_code >= 400:
+        payload = {\n            "model": self.model,\n            "messages": [{"role": "user", "content": prompt}],\n            "stream": False,\n            "options": {"temperature": 0},\n        }\n        # Qwen3 supports explicit thinking control; routine summaries and\n        # translation do not need hidden reasoning on this CPU-bound app.\n        if "qwen3" in self.model.lower():\n            payload["think"] = False\n        response = requests.post(f"{self.url}/api/chat", json=payload, timeout=3600)\n        if response.status_code >= 400:
             raise RuntimeError(f"Ollama request failed ({response.status_code}): {response.text[:3000]}")
         content = str(response.json().get("message", {}).get("content", "")).strip()
         if not content:
