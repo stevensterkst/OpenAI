@@ -40,7 +40,7 @@ $diar=$data.diarization
 foreach($name in @("enabled","segmentation_model","embedding_model","num_speakers","cluster_threshold")){
   if(-not $diar.PSObject.Properties[$name]){ $diar | Add-Member -MemberType NoteProperty -Name $name -Value $null }
 }
-$diar.enabled=$true
+$diar.enabled=if($diar.enabled -eq $null){$false}else{[bool]$diar.enabled}
 $diar.segmentation_model=(Join-Path $segDir "model.onnx")
 $diar.embedding_model=$emb
 $diar.num_speakers=0
