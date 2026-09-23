@@ -36,6 +36,8 @@ print("runtime imports OK")
   if($pipeline -notmatch 'finally:'){throw "Guaranteed cleanup missing"}
   if($pipeline -notmatch 'shutil\.rmtree\(work, ignore_errors=True\)'){throw "Temporary media cleanup missing"}
   if($text -notmatch 'api/chat'){throw "Ollama provider missing"}
+  $query=Get-Content core/query.py -Raw
+  if($query -notmatch 'ask_ollama'){throw "Transcript-grounded Ollama Q&A missing"}
   Write-Host "PASS: architecture checks"
   $featureFiles = @{
     "Caption-first remote transcript path" = @("core/captions.py","scrape_transcript")
@@ -59,7 +61,15 @@ print("runtime imports OK")
     $f=Get-Content $feature.Value[0] -Raw
     if($f -notmatch [regex]::Escape($feature.Value[1])){throw "Required feature missing: $($feature.Key)"}
   }
-  Write-Host "PASS: agreed feature coverage checks"
+  $ui=Get-Content app.py -Raw
+  foreach($control in @("Source language","Whisper model","Ollama model","Word timestamps","Source-grounded analysis","Analysis language","Transcript-grounded Q&A","Target language","Translate transcript","Speaker diarization","Batch","Library","Watch","range_mode","range_value")){
+    if($ui -notmatch [regex]::Escape($control)){throw "Required GUI control/feature marker missing: $control"}
+  }
+  $out=Get-Content core/outputs.py -Raw
+  foreach($artifact in @("original.txt","original.json","original.srt","original.vtt","transcript.md","segments.csv","source_summary.md","english_summary.md","output_manifest.json","translation.txt","analysis_source.md","analysis.md","qa.md","search_report.json")){
+    if($out -notmatch [regex]::Escape($artifact)){throw "Required output artifact marker missing: $artifact"}
+  }
+  Write-Host "PASS: agreed feature coverage + GUI/output checks"
   $cfg=Get-Content config.json -Raw
   if($cfg -notmatch '"range"'){Write-Host "NOTE: tracked config has no range section; runtime defaults to full."}
   $app=Get-Content app.py -Raw
@@ -71,6 +81,9 @@ print("runtime imports OK")
   if($media -notmatch 'max_seconds'){throw "Media range extraction missing"}
   if($caps -notmatch 'range_mode' -or $caps -notmatch 'range_value'){throw "Remote caption range integration missing"}
   if((Get-Content tests/test_ranges.py -Raw) -notmatch 'test_first_percent'){throw "Range regression tests missing"}
+  $launcher=Get-Content START-APP.vbs -Raw
+  if($launcher -match "git -C"){throw "Start launcher must not run git pull on every application launch"}
+  if($launcher -notmatch "SS-Transcribe-Translate\\.exe"){throw "Start launcher does not target packaged EXE"}
   if((Get-Content START-APP.vbs -Raw) -notmatch 'exePath'){throw "Launcher EXE path declaration missing"}
   if(!(Test-Path "CONSOLE.cmd")){throw "Console launcher missing"}
   if(!(Test-Path "AGENTS.md")){throw "AGENTS.md missing"}
