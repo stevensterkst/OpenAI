@@ -1,5 +1,5 @@
 Option Explicit
-Dim sh, fso, root, logDir, gitCmd, pyCmd, appPath, startDir, shortcutPath, taskbarDir, legacy, ws, sc
+Dim sh, fso, root, logDir, gitCmd, pyCmd, appPath, startDir, shortcutPath, taskbarDir, legacy, ws, sc, exePath
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
