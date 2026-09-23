@@ -20,6 +20,64 @@ def _ts(seconds: float, comma: bool = True) -> str:
 def _body(segment) -> str:
     return f"[{segment.speaker}] {segment.text}" if segment.speaker else segment.text
 
+def write_transcript_outputs(transcript: Transcript, directory: Path, source: str) -> None:
+    """Persist the transcript immediately, before any optional AI stage runs."""
+    directory.mkdir(parents=True, exist_ok=True)
+    transcript_lines=["# Transcript", "", f"**Language:** {transcript.language or 'detected'}", ""]
+    for segment in transcript.segments:
+        transcript_lines.append(
+            f"- **{_ts(segment.start, False)} → {_ts(segment.end, False)}** {_body(segment)}"
+        )
+    (directory / "original.txt").write_text(
+        "\n".join(_body(s) for s in transcript.segments) + "\n", encoding="utf-8"
+    )
+    (directory / "transcript.md").write_text(
+        "\n".join(transcript_lines) + "\n", encoding="utf-8"
+    )
+    with (directory / "segments.csv").open("w", newline="", encoding="utf-8-sig") as fh:
+        writer=csv.writer(fh)
+        writer.writerow(["start","end","speaker","text"])
+        for s in transcript.segments:
+            writer.writerow([s.start,s.end,s.speaker or "",s.text])
+    payload = {
+        "source": source, "language": transcript.language, "backend": transcript.backend,
+        "text": transcript.text, "model": transcript.model,
+        "word_timestamps": any(bool(s.words) for s in transcript.segments),
+        "speaker_labels": any(bool(s.speaker) for s in transcript.segments),
+        "segments": [asdict(s) for s in transcript.segments],
+    }
+    (directory / "original.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    srt=[]; vtt=["WEBVTT",""]
+    for i, segment in enumerate(transcript.segments, 1):
+        body=_body(segment)
+        srt.extend([str(i), f"{_ts(segment.start)} --> {_ts(segment.end)}", body, ""])
+        vtt.extend([f"{_ts(segment.start, False)} --> {_ts(segment.end, False)}", body, ""])
+    (directory / "original.srt").write_text("\n".join(srt), encoding="utf-8")
+    (directory / "original.vtt").write_text("\n".join(vtt), encoding="utf-8")
+
+def write_source_summary(summary: str, source_language: str, directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "source_summary.md").write_text(
+        f"# Source-language summary ({source_language})\n\n{summary.strip()}\n",
+        encoding="utf-8"
+    )
+
+def write_english_summary(summary: str, directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "english_summary.md").write_text(
+        "# English summary (translation of source-language summary)\n\n"
+        + summary.strip() + "\n", encoding="utf-8"
+    )
+
+def write_job_error(stage: str, error: str, directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "job_error.md").write_text(
+        f"# Job stopped during: {stage}\n\n{error.strip()}\n",
+        encoding="utf-8"
+    )
+
 def write_outputs(
     transcript: Transcript, translation: str, source_summary: str,
     english_summary: str, analysis_source: str, analysis_translated: str,
