@@ -33,5 +33,9 @@
   "paths": {
     "output_dir": "output",
     "ytdlp_path": ""
+  },
+  "range": {
+    "mode": "full",
+    "value": 0
   }
 }
