@@ -9,7 +9,7 @@ from .asr import FasterWhisperASR
 from .config import AppConfig
 from .diarization import assign_speakers, diarize_audio
 from .media import extract_audio, prepare_media, is_url
-from .outputs import write_outputs
+from .outputs import write_outputs, write_transcript_outputs, write_source_summary, write_english_summary, write_job_error
 from .search import build_search_report
 from .library import index_job
 from .player import write_player
@@ -92,6 +92,11 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         if not transcript.segments or not transcript.text.strip():
             raise RuntimeError("Pipeline safety check: source transcript is empty; downstream AI stages will not run.")
 
+        # Persist the primary transcript BEFORE any Ollama work. A later AI failure
+        # must never erase/hide a successful transcription.
+        write_transcript_outputs(transcript, job_dir, source)
+        progress(f"TRANSCRIPT SAVED: {job_dir}")
+
         diarization_used = False
         if cfg.diarization and media is not None:
             diarization_segments = diarize_audio(
@@ -107,12 +112,31 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
 
         provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
-        source_summary = provider.summarize_source(transcript.text, source_name)
-        if not source_summary.strip():
-            raise RuntimeError("Source-language summary returned empty; job stopped.")
-        english_summary = provider.translate_summary_to_english(source_summary, source_name)
-        if not english_summary.strip():
-            raise RuntimeError("English summary translation returned empty; job stopped.")
+        try:
+            source_summary = provider.summarize_source(transcript.text, source_name)
+            if not source_summary.strip():
+                raise RuntimeError("Source-language summary returned empty.")
+            write_source_summary(source_summary, source_name, job_dir)
+            progress(f"SOURCE SUMMARY SAVED: {job_dir / 'source_summary.md'}")
+        except Exception as exc:
+            write_job_error("source-language summary", str(exc), job_dir)
+            raise RuntimeError(
+                f"Source-language summary failed: {exc}. "
+                "The original transcript was already saved."
+            ) from exc
+
+        try:
+            english_summary = provider.translate_summary_to_english(source_summary, source_name)
+            if not english_summary.strip():
+                raise RuntimeError("English summary translation returned empty.")
+            write_english_summary(english_summary, job_dir)
+            progress(f"ENGLISH SUMMARY SAVED: {job_dir / 'english_summary.md'}")
+        except Exception as exc:
+            write_job_error("English summary translation", str(exc), job_dir)
+            raise RuntimeError(
+                f"English summary translation failed: {exc}. "
+                "The original transcript and source-language summary were already saved."
+            ) from exc
 
         timestamped = timestamped_transcript(transcript)
         analysis_source = ""
