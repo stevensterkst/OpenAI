@@ -172,5 +172,52 @@ EVIDENCE:
             ))
         return "\n\n".join(outputs)
 
+    def _looks_like_english(self, text: str) -> bool:
+        value = " " + text.lower().replace("\n", " ") + " "
+        english_markers = {
+            " the ", " and ", " of ", " to ", " in ", " is ", " are ",
+            " was ", " were ", " that ", " this ", " with ", " for ",
+            " from ", " has ", " have ", " on ", " as ", " by ",
+            " not ", " but ", " about ", " summary ", " court ",
+        }
+        french_markers = {
+            " le ", " la ", " les ", " des ", " une ", " un ",
+            " est ", " sont ", " dans ", " avec ", " pour ", " que ",
+            " pas ", " mais ", " je ", " vous ", " ce ", " cette ",
+            " du ", " au ", " aux ", " en français ",
+        }
+        en = sum(value.count(word) for word in english_markers)
+        fr = sum(value.count(word) for word in french_markers)
+        return en >= 2 and en > fr
+
     def translate_summary_to_english(self, source_summary: str, source_language: str) -> str:
-        return self.translate(source_summary, "English", purpose=f"{source_language} summary")
+        self.progress(f"Translating {source_language} summary -> English [{self.model}]")
+        prompt = (
+            "You are a professional translation engine.\n"
+            "OUTPUT LANGUAGE: ENGLISH.\n"
+            "The source text may be French, Spanish, Dutch, German, or another language.\n"
+            "Translate it into natural, faithful English.\n"
+            "OUTPUT ONLY THE ENGLISH TRANSLATION.\n"
+            "Do NOT answer the text. Do NOT discuss whether you can translate it.\n"
+            "Do NOT produce French or any other source-language text.\n"
+            "Do NOT summarize again; translate the supplied summary faithfully.\n\n"
+            f"SOURCE LANGUAGE: {source_language}\n\n"
+            "SOURCE SUMMARY:\n" + source_summary
+        )
+        result = self._call(prompt)
+        if self._looks_like_english(result):
+            return result
+        self.progress("English-summary language check failed; retrying with strict English-only instruction.")
+        retry = self._call(
+            "STRICT TRANSLATION TASK. Write ONLY English. Translate the following "
+            f"{source_language} text into English. Never refuse, never explain, never "
+            "repeat the source language, and never answer its subject matter.\n\n"
+            + source_summary
+        )
+        if not self._looks_like_english(retry):
+            raise RuntimeError(
+                "Ollama did not produce an English translation of the source summary. "
+                "The transcript and source-language summary have already been saved; "
+                "English summary was not accepted because its language could not be verified."
+            )
+        return retry
