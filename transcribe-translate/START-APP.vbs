@@ -1,30 +1,38 @@
 Option Explicit
-Dim sh, fso, root, logDir, gitCmd, pyCmd, appPath, startDir, shortcutPath, taskbarDir, legacy, ws, sc, exePath
+Dim sh, fso, root, startDir, shortcutPath, consoleShortcutPath, taskbarDir, legacy, ws, sc, csc, exePath, fallbackPath
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-logDir = fso.BuildPath(root, "logs")
-If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
-
-gitCmd = "cmd.exe /c git -C """ & root & """ pull --ff-only >> """ & fso.BuildPath(logDir, "launcher.log") & """ 2>&1"
-On Error Resume Next
-sh.Run gitCmd, 0, True
-On Error GoTo 0
 
 startDir = fso.BuildPath(sh.SpecialFolders("StartMenu"), "Programs\SS Transcribe-Translate")
 If Not fso.FolderExists(startDir) Then fso.CreateFolder(startDir)
-shortcutPath = fso.BuildPath(startDir, "SS Transcribe-Translate.lnk")
+
+exePath = fso.BuildPath(root, "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe")
+fallbackPath = fso.BuildPath(root, "START-APP.cmd")
+If Not fso.FileExists(exePath) And Not fso.FileExists(fallbackPath) Then
+  sh.Popup "SS Transcribe-Translate: neither the packaged EXE nor START-APP.cmd was found." & vbCrLf & root, 0, "SS Transcribe-Translate", 16
+  WScript.Quit 2
+End If
+
 Set ws = CreateObject("WScript.Shell")
+shortcutPath = fso.BuildPath(startDir, "SS Transcribe-Translate.lnk")
 Set sc = ws.CreateShortcut(shortcutPath)
-sc.TargetPath = "wscript.exe"
-sc.Arguments = """" & fso.BuildPath(root, "START-APP.vbs") & """"
+If fso.FileExists(exePath) Then
+  sc.TargetPath = exePath
+  sc.Arguments = ""
+Else
+  sc.TargetPath = fallbackPath
+  sc.Arguments = ""
+End If
 sc.WorkingDirectory = root
-sc.Description = "SS Transcribe-Translate — single local application launcher"
-sc.IconLocation = fso.BuildPath(root, "SS-Transcribe-Translate.ico")
-If Not fso.FileExists(fso.BuildPath(root, "SS-Transcribe-Translate.ico")) Then sc.IconLocation = sh.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\SHELL32.dll,167"
+sc.Description = "SS Transcribe-Translate — verified local Windows application"
+If fso.FileExists(fso.BuildPath(root, "SS-Transcribe-Translate.ico")) Then
+  sc.IconLocation = fso.BuildPath(root, "SS-Transcribe-Translate.ico")
+Else
+  sc.IconLocation = sh.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\SHELL32.dll,167"
+End If
 sc.Save()
 
-Dim consoleShortcutPath, csc
 consoleShortcutPath = fso.BuildPath(startDir, "SS Transcribe-Translate - Console.lnk")
 Set csc = ws.CreateShortcut(consoleShortcutPath)
 csc.TargetPath = fso.BuildPath(root, "CONSOLE.cmd")
@@ -43,11 +51,7 @@ If fso.FolderExists(taskbarDir) Then
       On Error Resume Next
       legacyTarget = LCase(ws.CreateShortcut(legacy.Path).TargetPath)
       On Error GoTo 0
-      If legacyBase = "transcription" Or _
-         legacyBase = "transcribe-translate" Or _
-         legacyBase = "ss transcribe-translate" Or _
-         InStr(legacyTarget, "transcribe-translate.ps1") > 0 Or _
-         InStr(legacyTarget, "start-app.cmd") > 0 Then
+      If legacyBase = "transcription" Or legacyBase = "transcribe-translate" Or legacyBase = "ss transcribe-translate" Or InStr(legacyTarget, "transcribe-translate.ps1") > 0 Or InStr(legacyTarget, "start-app.cmd") > 0 Then
         On Error Resume Next
         fso.CopyFile shortcutPath, legacy.Path, True
         On Error GoTo 0
@@ -57,20 +61,11 @@ If fso.FolderExists(taskbarDir) Then
   Next
 End If
 
-exePath = fso.BuildPath(root, "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe")
 If fso.FileExists(exePath) Then
   sh.CurrentDirectory = root
   sh.Run """" & exePath & """", 0, False
-  WScript.Quit 0
+Else
+  sh.CurrentDirectory = root
+  sh.Run """" & fallbackPath & """", 0, False
 End If
-
-pyCmd = "C:\Python313\pythonw.exe"
-If Not fso.FileExists(pyCmd) Then pyCmd = sh.ExpandEnvironmentStrings("%LocalAppData%") & "\Programs\Python\Python313\pythonw.exe"
-If Not fso.FileExists(pyCmd) Then pyCmd = "pythonw.exe"
-appPath = fso.BuildPath(root, "app.py")
-If Not fso.FileExists(appPath) Then
-  sh.Popup "SS Transcribe-Translate: app.py was not found." & vbCrLf & root, 0, "SS Transcribe-Translate", 16
-  WScript.Quit 2
-End If
-sh.CurrentDirectory = root
-sh.Run """" & pyCmd & """ """ & appPath & """", 0, False
+WScript.Quit 0
