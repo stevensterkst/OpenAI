@@ -5,7 +5,7 @@ Start-Transcript -Path $log -Force | Out-Null
 try {
   Write-Host "=== SS TRANSCRIBE-TRANSLATE FINAL SOURCE/BUILD AUDIT ==="
   git rev-parse HEAD
-  & "C:\Python313\python.exe" -m compileall -q app.py core
+  & (Get-Command python).Source -m compileall -q app.py core
   if($LASTEXITCODE){throw "Python compileall FAILED"}
   Write-Host "PASS: Python compileall"
 
