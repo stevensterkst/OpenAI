@@ -11,9 +11,19 @@ try {
   if($LASTEXITCODE){throw "Python unit tests FAILED"}
   Write-Host "PASS: Python compileall + unit tests"
 
-  $imports='import faster_whisper,ctranslate2,requests,yt_dlp,sherpa_onnx;print("runtime imports OK")'
-  & (Get-Command python).Source -c $imports
-  if($LASTEXITCODE){throw "Runtime imports FAILED"}
+  $importCheck = Join-Path $env:TEMP "ss_transcribe_import_check.py"
+  @'
+import faster_whisper
+import ctranslate2
+import requests
+import yt_dlp
+import sherpa_onnx
+print("runtime imports OK")
+'@ | Set-Content -LiteralPath $importCheck -Encoding utf8
+  & (Get-Command python).Source $importCheck
+  $importExit=$LASTEXITCODE
+  Remove-Item -LiteralPath $importCheck -Force -ErrorAction SilentlyContinue
+  if($importExit){throw "Runtime imports FAILED"}
   Write-Host "PASS: required local runtime imports"
 
   $bad=Get-ChildItem app.py,core -Recurse -File -Filter *.py | Select-String -Pattern '(^|\s)(import|from) (torch|whisper|whisperx|torchaudio|pyannote)'
