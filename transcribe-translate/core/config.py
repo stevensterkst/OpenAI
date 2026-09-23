@@ -85,12 +85,12 @@ def load_config(path: Path | None = None) -> AppConfig:
         data.get("qa", {}), data.get("diarization", {}), data.get("paths", {})
     )
     return AppConfig(
-        local_model=asr.get("local_model", "small"), language=asr.get("language", "auto"),
-        compute_type=asr.get("compute_type", "int8"), word_timestamps=bool(asr.get("word_timestamps", True)),
+        local_model=asr.get("local_model", "base"), language=asr.get("language", "auto"),
+        compute_type=asr.get("compute_type", "int8"), word_timestamps=bool(asr.get("word_timestamps", False)),
         hotwords=str(asr.get("hotwords", "")), ollama_url=text.get("ollama_url", "http://127.0.0.1:11434"),
         ollama_model=text.get("ollama_model", ""), analysis_language=str(text.get("analysis_language", "source")),
         target_language=text.get("target_language", "English"), translate_transcript=bool(text.get("translate_transcript", False)),
-        analysis=bool(text.get("analysis", True)), search_query=str(analysis.get("search_query", "")),
+        analysis=bool(text.get("analysis", False)), search_query=str(analysis.get("search_query", "")),
         top_terms=int(analysis.get("top_terms", 30)), qa_question=str(qa.get("question", "")),
         qa_language=str(qa.get("language", "English")), diarization=bool(diar.get("enabled", False)),
         diarization_segmentation_model=str(diar.get("segmentation_model", "")),
