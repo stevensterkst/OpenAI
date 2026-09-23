@@ -113,7 +113,7 @@ Write-Host "Architecture checks: PASS (local/Ollama runtime; no OpenAI runtime d
 
 $env:SS_VERIFY_MEDIA = $mediaPath
 $env:SS_VERIFY_OLLAMA_MODEL = $OllamaModel
-$out = Join-Path $PSScriptRoot "output"
+$out = Join-Path $HOME "Downloads\Transcribe-Translate\_verification"
 if (-not (Test-Path $out)) { New-Item -ItemType Directory -Path $out | Out-Null }
 
 Write-Host ""
