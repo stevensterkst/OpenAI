@@ -80,7 +80,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     local_path = path.with_name("config.local.json")
     if local_path.exists():
         local_data = json.loads(local_path.read_text(encoding="utf-8-sig"))
-        for section in ("asr", "text", "analysis", "qa", "diarization", "paths"):
+        for section in ("asr", "text", "analysis", "qa", "diarization", "paths", "range"):
             if isinstance(local_data.get(section), dict):
                 data.setdefault(section, {}).update(local_data[section])
     asr, text, analysis, qa, diar, paths = (
