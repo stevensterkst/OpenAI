@@ -76,6 +76,7 @@ $source = Get-Content "core/pipeline.py" -Raw
 $asr = Get-Content "core/asr.py" -Raw
 $gui = Get-Content "app.py" -Raw
 $text = Get-Content "core/text.py" -Raw
+$allPython = (Get-ChildItem app.py,core -Recurse -File -Filter *.py | Get-Content -Raw) -join "`n"
 $diar = Get-Content "core/diarization.py" -Raw
 $batch = Get-Content "core/batch.py" -Raw
 $library = Get-Content "core/library.py" -Raw
@@ -86,7 +87,7 @@ if($LASTEXITCODE -ne 0){ throw "Python unit tests failed." }
 $checks = @(
   @($source, "source_summary", "Source-summary stage"),
   @($source, "translate_summary_to_english", "English-summary translation stage"),
-  @($source, "no OpenAI API calls", "Zero-OpenAI runtime assertion"),
+
   @($asr, "word_timestamps", "Word timestamps"),
   @($asr, "hotwords", "Hotwords"),
   @($gui, "Vocabulary / names", "Vocabulary GUI"),
@@ -104,7 +105,11 @@ $checks = @(
 foreach($check in $checks) {
   if ($check[0] -notmatch [regex]::Escape($check[1])) { throw "Architecture check failed: $($check[2])" }
 }
-Write-Host "Architecture checks: PASS" -ForegroundColor Green
+$forbiddenOpenAI = @("import openai","from openai","api.openai.com","client.responses","client.chat.completions")
+foreach($needle in $forbiddenOpenAI) {
+  if($allPython -match [regex]::Escape($needle)) { throw "Architecture check failed: forbidden OpenAI runtime reference: $needle" }
+}
+Write-Host "Architecture checks: PASS (local/Ollama runtime; no OpenAI runtime dependency)" -ForegroundColor Green
 
 $env:SS_VERIFY_MEDIA = $mediaPath
 $env:SS_VERIFY_OLLAMA_MODEL = $OllamaModel
