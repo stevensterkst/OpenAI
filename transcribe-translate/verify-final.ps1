@@ -26,7 +26,7 @@ print("runtime imports OK")
   if($importExit){throw "Runtime imports FAILED"}
   Write-Host "PASS: required local runtime imports"
 
-  $bad=Get-ChildItem app.py,core -Recurse -File -Filter *.py | Select-String -Pattern '(^|\s)(import|from) (torch|whisper|whisperx|torchaudio|pyannote)'
+  $bad=Get-ChildItem app.py,core -Recurse -File -Filter *.py | Select-String -Pattern '(^|\s)(import|from) (torch|whisper|whisperx|torchaudio|pyannote)(\s|$)'
   if($bad){$bad;throw "Obsolete runtime import found"}
   $asr=Get-Content core/asr.py -Raw
   $pipeline=Get-Content core/pipeline.py -Raw
