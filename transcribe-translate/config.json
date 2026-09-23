@@ -31,7 +31,7 @@
     "cluster_threshold": 0.5
   },
   "paths": {
-    "output_dir": "output",
+    "output_dir": "~/Downloads/Transcribe-Translate",
     "ytdlp_path": ""
   },
   "range": {
