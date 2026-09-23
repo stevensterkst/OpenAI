@@ -60,6 +60,21 @@ print("runtime imports OK")
     if($f -notmatch [regex]::Escape($feature.Value[1])){throw "Required feature missing: $($feature.Key)"}
   }
   Write-Host "PASS: agreed feature coverage checks"
+  $cfg=Get-Content config.json -Raw
+  if($cfg -notmatch '"range"'){Write-Host "NOTE: tracked config has no range section; runtime defaults to full."}
+  $app=Get-Content app.py -Raw
+  $pipe=Get-Content core/pipeline.py -Raw
+  $media=Get-Content core/media.py -Raw
+  $caps=Get-Content core/captions.py -Raw
+  if($app -notmatch 'range_mode' -or $app -notmatch 'range_value'){throw "GUI transcription range controls missing"}
+  if($pipe -notmatch '_range_seconds' -or $pipe -notmatch 'extract_audio\(media, work / "audio.wav", limit\)'){throw "Pipeline range integration missing"}
+  if($media -notmatch 'max_seconds'){throw "Media range extraction missing"}
+  if($caps -notmatch 'range_mode' -or $caps -notmatch 'range_value'){throw "Remote caption range integration missing"}
+  if((Get-Content tests/test_ranges.py -Raw) -notmatch 'test_first_percent'){throw "Range regression tests missing"}
+  if((Get-Content START-APP.vbs -Raw) -notmatch 'exePath'){throw "Launcher EXE path declaration missing"}
+  if(!(Test-Path "CONSOLE.cmd")){throw "Console launcher missing"}
+  if(!(Test-Path "AGENTS.md")){throw "AGENTS.md missing"}
+  Write-Host "PASS: range, launcher, console and AI coordination checks"
 
   & (Join-Path $PSScriptRoot "build-exe.ps1")
   if($LASTEXITCODE){throw "Windows build script FAILED"}
