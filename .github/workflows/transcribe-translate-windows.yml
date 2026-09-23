@@ -32,8 +32,8 @@ jobs:
       - name: Compile every Python module
         run: python -m compileall -q .
 
-      - name: Build Windows GUI
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\build-exe.ps1
+      - name: Final source and build audit
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-final.ps1
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
