@@ -5,9 +5,11 @@ Start-Transcript -Path $log -Force | Out-Null
 try {
   Write-Host "=== SS TRANSCRIBE-TRANSLATE FINAL SOURCE/BUILD AUDIT ==="
   git rev-parse HEAD
-  & (Get-Command python).Source -m compileall -q app.py core
+  & (Get-Command python).Source -m compileall -q app.py core tests
   if($LASTEXITCODE){throw "Python compileall FAILED"}
-  Write-Host "PASS: Python compileall"
+  python -m unittest discover -s tests -p "test_*.py" -v
+  if($LASTEXITCODE){throw "Python unit tests FAILED"}
+  Write-Host "PASS: Python compileall + unit tests"
 
   $imports='import faster_whisper,ctranslate2,requests,yt_dlp,sherpa_onnx;print("runtime imports OK")'
   & "C:\Python313\python.exe" -c $imports
@@ -28,11 +30,13 @@ try {
 
   if(Test-Path build){Remove-Item build -Recurse -Force}
   if(Test-Path dist){Remove-Item dist -Recurse -Force}
-  & "C:\Python313\python.exe" -m PyInstaller --noconfirm --clean --onedir --windowed --name "SS-Transcribe-Translate" --collect-all sherpa_onnx --collect-all faster_whisper --collect-all ctranslate2 app.py
+  & (Get-Command python).Source -m PyInstaller --noconfirm --clean --onedir --windowed --name "SS-Transcribe-Translate" --collect-all sherpa_onnx --collect-all faster_whisper --collect-all ctranslate2 app.py
   if($LASTEXITCODE){throw "PyInstaller FAILED"}
   $exe=Join-Path $PSScriptRoot "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe"
   if(!(Test-Path $exe)){throw "EXE missing"}
   $hash=(Get-FileHash $exe -Algorithm SHA256).Hash
+  "SS-Transcribe-Translate.exe SHA256  $hash" | Set-Content (Join-Path $bundle "SHA256.txt") -Encoding utf8
+  Copy-Item (Join-Path $bundle "SHA256.txt") (Join-Path $PSScriptRoot "SHA256.txt") -Force
   Write-Host "PASS: Windows EXE built"
   Write-Host "EXE: $exe"
   Write-Host "SHA256: $hash"
