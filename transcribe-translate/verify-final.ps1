@@ -67,7 +67,7 @@ print("runtime imports OK")
   if(!(Test-Path $exe)){throw "EXE missing"}
   $bundle=Join-Path $PSScriptRoot "dist\SS-Transcribe-Translate"
   if(!(Test-Path (Join-Path $bundle "config.json"))){throw "Packaged config.json missing"}
-  if(Test-Path "runtime\deno.exe" -and !(Test-Path (Join-Path $bundle "runtime\deno.exe"))){throw "Packaged Deno runtime missing"}
+  if((Test-Path "runtime\deno.exe") -and !(Test-Path (Join-Path $bundle "runtime\deno.exe"))){throw "Packaged Deno runtime missing"}
   $hash=(Get-FileHash $exe -Algorithm SHA256).Hash
   "SS-Transcribe-Translate.exe SHA256  $hash" | Set-Content (Join-Path $bundle "SHA256.txt") -Encoding utf8
   Copy-Item (Join-Path $bundle "SHA256.txt") (Join-Path $PSScriptRoot "SHA256.txt") -Force
