@@ -28,19 +28,31 @@ if (-not $ct2Info) { throw "ctranslate2 is missing. Refusing cleanup because the
 
 Write-Host ""
 Write-Host "=== CHECKING TORCH REVERSE DEPENDENCY ===" -ForegroundColor Yellow
-$remainingTorchUsers = @()
-$installed = python -m pip list --format=json | ConvertFrom-Json
-foreach ($item in $installed) {
-  if ($item.name -in @("torch","openai-whisper")) { continue }
-  $info = Get-PackageInfoText $item.name
-  if ($info -match "(?im)^Requires:s*.*torch") {
-    $remainingTorchUsers += $item.name
-  }
-}
+$reverseCheck = @'
+import importlib.metadata as md
+from packaging.requirements import Requirement
+users = []
+for dist in md.distributions():
+    name = dist.metadata.get("Name") or ""
+    if name.lower() in ("torch", "openai-whisper"):
+        continue
+    for raw in (dist.requires or []):
+        try:
+            req = Requirement(raw)
+        except Exception:
+            continue
+        if req.name.lower() == "torch":
+            users.append(name)
+            break
+for name in sorted(set(users), key=str.lower):
+    print(name)
+'@
+$remainingTorchUsers = @(& python -c $reverseCheck)
+if ($LASTEXITCODE -ne 0) { throw "Could not verify Torch reverse dependencies; refusing cleanup." }
 if ($remainingTorchUsers.Count -gt 0) {
   throw ("REFUSING TO REMOVE Torch. Other installed packages declare Torch: " + ($remainingTorchUsers -join ", "))
 }
-
+Write-Host "No installed package declares Torch: safe to continue." -ForegroundColor Green
 Write-Host ""
 if ($whisperInfo) {
   Write-Host "Uninstalling obsolete openai-whisper..."
