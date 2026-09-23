@@ -21,7 +21,7 @@ if(Test-Path $exe){
   $sc.Arguments = ""
 }
 $sc.WorkingDirectory = $root
-$sc.Description = "SS Transcribe-Translate — verified local Windows application"
+$sc.Description = "SS Transcribe-Translate - verified local Windows application"
 $icon = Join-Path $root "SS-Transcribe-Translate.ico"
 if(Test-Path $icon){ $sc.IconLocation = $icon } else { $sc.IconLocation = "$env:SystemRoot\System32\SHELL32.dll,167" }
 $sc.Save()
