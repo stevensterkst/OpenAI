@@ -12,7 +12,7 @@ import requests
 def _clean_caption_text(value: str) -> str:
     value = html.unescape(value or "")
     value = re.sub(r"<[^>]+>", "", value)
-    value = re.sub(r"\\s+", " ", value).strip()
+    value = re.sub(r"\s+", " ", value).strip()
     return value
 
 
@@ -61,7 +61,7 @@ def _parse_srv3(text: str) -> list[dict[str, Any]]:
         for node in p.iter():
             if node.text:
                 pieces.append(node.text)
-        body = _clean_caption_text(" ".join(pieces))
+        body = _clean_caption_text("".join(pieces))
         if not body:
             continue
         start = start_ms / 1000.0
