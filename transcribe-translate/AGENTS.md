@@ -37,3 +37,13 @@ This project utilizes a dual-engine AI strategy (OpenAI & DeepSeek). To maintain
 - Never silently install, update, remove, or replace unrelated software on the user's Windows PC.
 - Do not claim the application is final until the source audit, Windows build audit, and an end-to-end real-media test pass.
 - Record important architecture/feature changes in this file so the next agent can resume from GitHub without relying on chat history.
+
+## CURRENT SS TRANSCRIBE-TRANSLATE STATE
+- Caption parsing supports VTT, SRV3, TTML and JSON3 with regression tests.
+- Acquisition is caption-first, then yt-dlp/local-media + faster-whisper fallback.
+- The GUI now supports transcription of the full source, the first N minutes, or the first N percent (including 50% for the first half).
+- The selected range is applied to remote caption cues and local FFmpeg audio extraction, and is persisted in config.local.json.
+- `CONSOLE.cmd` provides Start, final audit, local verification, EXE build and Explorer actions.
+- `START-APP.vbs` creates the Start Menu application and console shortcuts and prefers the packaged EXE.
+- Browser transcript bridge and browser tab-audio capture remain explicitly unfinished; do not claim them as implemented until committed and verified.
+- The current definition of final verification is: `verify-final.ps1` + Windows EXE build + `verify-local.ps1` with an explicit real media file. CI uses the same final source/build gate.
