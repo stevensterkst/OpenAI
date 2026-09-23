@@ -76,6 +76,7 @@ print("runtime imports OK")
   if(!(Test-Path "AGENTS.md")){throw "AGENTS.md missing"}
   Write-Host "PASS: range, launcher, console and AI coordination checks"
 
+  Write-Host "PASS: source/feature verification complete; starting clean Windows EXE build"
   & (Join-Path $PSScriptRoot "build-exe.ps1")
   if($LASTEXITCODE){throw "Windows build script FAILED"}
   $exe=Join-Path $PSScriptRoot "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe"
