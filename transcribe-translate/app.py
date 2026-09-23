@@ -46,10 +46,10 @@ class App(tk.Tk):
         self.top_terms = tk.IntVar(value=30)
         self.qa_question = tk.StringVar()
         self.qa_language = tk.StringVar(value="English")
-        self.word_timestamps = tk.BooleanVar(value=True)
+        self.word_timestamps = tk.BooleanVar(value=initial.word_timestamps)
         self.translate_transcript = tk.BooleanVar(value=False)
         self.keep_media = tk.BooleanVar(value=initial.keep_media)
-        self.analysis = tk.BooleanVar(value=True)
+        self.analysis = tk.BooleanVar(value=initial.analysis)
         self.diarization = tk.BooleanVar(value=initial.diarization)
         self.diarization_segmentation_model = tk.StringVar(value=initial.diarization_segmentation_model)
         self.diarization_embedding_model = tk.StringVar(value=initial.diarization_embedding_model)
@@ -58,6 +58,7 @@ class App(tk.Tk):
         self.output = tk.StringVar(value=str((ROOT / initial.output_dir).resolve() if not Path(initial.output_dir).is_absolute() else initial.output_dir))
         self.status = tk.StringVar(value="Ready — source transcript + source summary are primary; no paid API")
         self.advice = tk.StringVar(value="")
+        self.performance = tk.StringVar(value="Quick")
         self.watch_stop = None
         self._build()
         self.refresh_ollama()
@@ -80,16 +81,23 @@ class App(tk.Tk):
         box.columnconfigure(0,weight=1)
 
         opts = ttk.LabelFrame(root,text="Processing",padding=10); opts.pack(fill="x",pady=10)
-        ttk.Label(opts,text="Source language").grid(row=0,column=0,sticky="w",pady=3)
-        ttk.Entry(opts,textvariable=self.language,width=16).grid(row=0,column=1,sticky="w",pady=3)
-        ttk.Label(opts,text="auto or any Whisper-supported ISO code").grid(row=0,column=2,sticky="w",padx=(18,0))
-        ttk.Label(opts,text="Whisper model").grid(row=1,column=0,sticky="w",pady=3)
-        ttk.Combobox(opts,textvariable=self.model,values=["tiny","base","small","medium","large-v3"],state="readonly",width=16).grid(row=1,column=1,sticky="w",pady=3)
-        ttk.Label(opts,text="Ollama model").grid(row=0,column=3,sticky="w",padx=(30,8))
+        ttk.Label(opts,text="Performance profile").grid(row=0,column=0,sticky="w",pady=3)
+        self.performance_combo=ttk.Combobox(opts,textvariable=self.performance,
+            values=["Quick","Balanced","Accuracy"],state="readonly",width=16)
+        self.performance_combo.grid(row=0,column=1,sticky="w",pady=3)
+        self.performance_combo.bind("<<ComboboxSelected>>",lambda _e:self.apply_performance_profile())
+        ttk.Label(opts,text="Quick = fastest CPU turnaround; Balanced = quality/speed; Accuracy = more CPU/time.").grid(row=0,column=2,columnspan=3,sticky="w",padx=(28,0))
+
+        ttk.Label(opts,text="Source language").grid(row=1,column=0,sticky="w",pady=3)
+        ttk.Entry(opts,textvariable=self.language,width=16).grid(row=1,column=1,sticky="w",pady=3)
+        ttk.Label(opts,text="auto or any Whisper-supported ISO code").grid(row=1,column=2,sticky="w",padx=(18,0))
+        ttk.Label(opts,text="Whisper model").grid(row=2,column=0,sticky="w",pady=3)
+        ttk.Combobox(opts,textvariable=self.model,values=["tiny","base","small","medium","large-v3"],state="readonly",width=16).grid(row=2,column=1,sticky="w",pady=3)
+        ttk.Label(opts,text="Ollama model").grid(row=1,column=3,sticky="w",padx=(30,8))
         self.ollama_combo=ttk.Combobox(opts,textvariable=self.ollama_model,state="readonly",width=28)
-        self.ollama_combo.grid(row=0,column=4,sticky="w"); self.ollama_combo.bind("<<ComboboxSelected>>",lambda _e:self.update_advice())
-        ttk.Button(opts,text="Refresh",command=self.refresh_ollama).grid(row=1,column=3,sticky="w",padx=(30,0))
-        ttk.Label(opts,textvariable=self.advice,wraplength=360).grid(row=1,column=4,sticky="w",padx=(8,0))
+        self.ollama_combo.grid(row=1,column=4,sticky="w"); self.ollama_combo.bind("<<ComboboxSelected>>",lambda _e:self.update_advice())
+        ttk.Button(opts,text="Refresh",command=self.refresh_ollama).grid(row=2,column=3,sticky="w",padx=(30,0))
+        ttk.Label(opts,textvariable=self.advice,wraplength=360).grid(row=2,column=4,sticky="w",padx=(8,0))
 
         ttk.Label(opts,text="Vocabulary / names").grid(row=2,column=0,sticky="w",pady=(8,3))
         ttk.Entry(opts,textvariable=self.hotwords,width=48).grid(row=2,column=1,sticky="w",pady=(8,3))
@@ -192,6 +200,24 @@ class App(tk.Tk):
         ttk.Label(parent,text=label).grid(row=row,column=column,sticky="w",pady=3)
         ttk.Combobox(parent,textvariable=var,values=values,state="readonly",width=24).grid(row=row,column=column+1,sticky="w",pady=3)
 
+    def apply_performance_profile(self):
+        profile=self.performance.get()
+        if profile=="Quick":
+            self.model.set("base")
+            self.word_timestamps.set(False)
+            self.analysis.set(False)
+            self.diarization.set(False)
+        elif profile=="Balanced":
+            self.model.set("small")
+            self.word_timestamps.set(False)
+            self.analysis.set(False)
+            self.diarization.set(False)
+        else:
+            self.model.set("small")
+            self.word_timestamps.set(True)
+            self.analysis.set(True)
+        self.status.set(f"Profile: {profile} — model={self.model.get()}, word timestamps={'ON' if self.word_timestamps.get() else 'OFF'}, analysis={'ON' if self.analysis.get() else 'OFF'}")
+
     def refresh_ollama(self):
         def worker():
             try:
@@ -203,8 +229,11 @@ class App(tk.Tk):
     def set_models(self,models):
         self.ollama_combo["values"]=models
         configured=load_config().ollama_model
+        preferred=["qwen3:1.7b","gemma3:1b","llama3.2:1b","phi4-mini:3.8b"]
         if configured in models: self.ollama_model.set(configured)
-        elif models: self.ollama_model.set(models[0])
+        else:
+            choice=next((m for m in preferred if m in models), None)
+            self.ollama_model.set(choice or (models[0] if models else ""))
         self.update_advice(); self.logmsg(f"Ollama models available: {', '.join(models) if models else 'none'}")
 
     def update_advice(self):
