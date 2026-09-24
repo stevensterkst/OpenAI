@@ -41,9 +41,12 @@ This project utilizes a dual-engine AI strategy (OpenAI & DeepSeek). To maintain
 ## CURRENT SS TRANSCRIBE-TRANSLATE STATE
 - Caption parsing supports VTT, SRV3, TTML and JSON3 with regression tests.
 - Acquisition is caption-first, then yt-dlp/local-media + faster-whisper fallback.
-- The GUI now supports transcription of the full source, the first N minutes, or the first N percent (including 50% for the first half).
-- The selected range is applied to remote caption cues and local FFmpeg audio extraction, and is persisted in config.local.json.
-- `CONSOLE.cmd` provides Start, final audit, local verification, EXE build and Explorer actions.
-- `START-APP.vbs` creates the Start Menu application and console shortcuts and prefers the packaged EXE.
+- AUTO caption selection no longer gives an unexplained preference to English; manual tracks are preferred when otherwise equivalent.
+- The primary transcript is persisted immediately after acquisition/ASR and before any Ollama stage. Downstream AI failure cannot erase it.
+- Local ASR uses faster-whisper BatchedInferencePipeline in bounded 180-second windows, with VAD first and a no-VAD retry when a window is empty or suspiciously under-covered.
+- Local ASR now reports an explicit window coverage plan/completion and rejects invalid final timestamps.
+- The selected range remains full / first N minutes / first N percent and is applied to remote captions or FFmpeg extraction.
 - Browser transcript bridge and browser tab-audio capture remain explicitly unfinished; do not claim them as implemented until committed and verified.
-- The current definition of final verification is: `verify-final.ps1` + Windows EXE build + `verify-local.ps1` with an explicit real media file. CI uses the same final source/build gate.
+- English summary generation is downstream of the source-language summary and has an English-language acceptance check/retry.
+- The current definition of final verification remains: verify-final.ps1 + Windows EXE build + verify-local.ps1 with an explicit real media file. CI uses the source/build gate.
+- IMPORTANT OPEN TEST: a real user-reported local .m4a previously produced only a ~12-second transcript segment. The repository cannot determine whether the source file itself was only ~29 seconds or whether ASR lost audio without running against that exact Windows file. Do not claim this case is solved until the exact file is re-tested and its FFmpeg duration is compared with ASR coverage/output.
