@@ -27,3 +27,6 @@ chrome.runtime.onMessage.addListener(async message => {
   const streamId = await chrome.tabCapture.getMediaStreamId({targetTabId:tab.id});
   chrome.runtime.sendMessage({type:"START_RECORDING",target:"offscreen",streamId});
 });
+chrome.runtime.onMessage.addListener(async message => {
+  if (message?.type === "STOP_TAB_CAPTURE") chrome.runtime.sendMessage({type:"STOP_RECORDING",target:"offscreen"});
+});
