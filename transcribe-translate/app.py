@@ -106,6 +106,7 @@ class App(tk.Tk):
         self.ollama_combo.grid(row=1,column=4,sticky="w")
         self.ollama_combo.bind("<<ComboboxSelected>>",lambda _e:self.update_advice())
         ttk.Button(opts,text="Refresh",command=self.refresh_ollama).grid(row=2,column=3,sticky="w",padx=(20,0))
+        ttk.Label(opts,textvariable=self.advice,wraplength=520).grid(row=3,column=2,columnspan=2,sticky="w",padx=(20,0))
         ttk.Label(opts,textvariable=self.advice,wraplength=360).grid(row=2,column=4,sticky="w")
 
         ttk.Label(opts,text="Vocabulary / names").grid(row=3,column=0,sticky="w",pady=(8,3))
@@ -239,7 +240,7 @@ class App(tk.Tk):
     def set_models(self,models):
         self.ollama_combo["values"]=models
         configured=load_config().ollama_model
-        preferred=["qwen3:1.7b","phi4-mini:3.8b","gemma3:1b","llama3.2:1b"]
+        preferred=["phi4-mini:3.8b","qwen3:1.7b","gemma3:1b","llama3.2:1b"]
         if configured in models: self.ollama_model.set(configured)
         else:
             choice=next((m for m in preferred if m in models), None)
