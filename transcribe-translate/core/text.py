@@ -40,10 +40,11 @@ def model_advice(model: str) -> tuple[str, str]:
     return ("unknown", "No preset recommendation; benchmark this installed model on your material before relying on it.")
 
 class OllamaTextProvider:
-    def __init__(self, url: str, model: str, progress: Progress = print):
+    def __init__(self, url: str, model: str, progress: Progress = print, num_predict: int = 1024):
         self.url = url.rstrip("/")
         self.model = model
         self.progress = progress
+        self.num_predict = max(1024, int(num_predict))
 
     def list_models(self) -> list[str]:
         try:
@@ -58,7 +59,7 @@ class OllamaTextProvider:
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
-            "options": {"temperature": 0},
+            "options": {"temperature": 0, "num_predict": self.num_predict},
         }
         if "qwen3" in self.model.lower():
             payload["think"] = False
@@ -152,7 +153,7 @@ TRANSCRIPT:
             if candidate == self.model or candidate not in available:
                 continue
             self.progress(f"Summary quality check failed with {self.model}; retrying with local {candidate}.")
-            backup = OllamaTextProvider(self.url, candidate, self.progress)
+            backup = OllamaTextProvider(self.url, candidate, self.progress, self.num_predict)
             retry = backup._summary_call(transcript, source_language)
             if backup._summary_quality_ok(retry, transcript):
                 self.progress(f"SUMMARY QUALITY PASS: {candidate}")
