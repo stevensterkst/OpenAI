@@ -38,7 +38,7 @@ class App(tk.Tk):
         self.ytdlp_path = tk.StringVar(value=initial.ytdlp_path)
         self.language = tk.StringVar(value=initial.language)
         self.model = tk.StringVar(value=initial.local_model)
-        self.ollama_model = tk.StringVar()
+        self.ollama_model = tk.StringVar(value=initial.ollama_model)
         self.target = tk.StringVar(value="English")
         self.analysis_language = tk.StringVar(value="source")
         self.hotwords = tk.StringVar()
@@ -229,7 +229,7 @@ class App(tk.Tk):
     def set_models(self,models):
         self.ollama_combo["values"]=models
         configured=load_config().ollama_model
-        preferred=["qwen3:1.7b","gemma3:1b","llama3.2:1b","phi4-mini:3.8b"]
+        preferred=["qwen3:1.7b","phi4-mini:3.8b","gemma3:1b","llama3.2:1b"]
         if configured in models: self.ollama_model.set(configured)
         else:
             choice=next((m for m in preferred if m in models), None)
