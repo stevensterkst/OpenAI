@@ -177,8 +177,11 @@ def _choose_track(info: dict, requested_language: str) -> tuple[str, dict] | Non
                     score += 80
             if source_name == "manual":
                 score += 20
-            if ll.startswith("en"):
-                score += 5
+            # AUTO means: do not silently prefer English. Preserve the best
+            # available source-language track instead of selecting a translated
+            # English track merely because it exists.
+            if requested == "auto" and source_name == "manual":
+                score += 20
             for entry in entries:
                 ext = str(entry.get("ext", "")).lower()
                 if entry.get("url") and ext in {"vtt", "srv3", "ttml", "json3"}:
