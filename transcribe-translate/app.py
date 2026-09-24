@@ -145,7 +145,8 @@ class App(tk.Tk):
         opts.columnconfigure(4,weight=1)
 
         actions=ttk.Frame(root); actions.pack(fill="x",pady=8)
-        ttk.Button(actions,text="START",command=self.start).pack(side="left")
+        self.start_button=ttk.Button(actions,text="START",command=self.start)
+        self.start_button.pack(side="left")
         ttk.Button(actions,text="Batch folder…",command=self.batch_folder).pack(side="left",padx=8)
         ttk.Button(actions,text="Library…",command=self.library).pack(side="left")
         ttk.Button(actions,text="Watch folder…",command=self.start_watch).pack(side="left",padx=8)
@@ -399,6 +400,8 @@ class App(tk.Tk):
         self.after(0,lambda:(self.log.insert("end",msg+"\n"),self.log.see("end"),self.status.set(msg[:150])))
 
     def start(self):
+        if self.job_running:
+            return
         source=self.source.get().strip(); model=self.ollama_model.get().strip()
         if not source: messagebox.showerror("Input required","Choose a local audio/video file or paste a supported media URL."); return
         if not model: messagebox.showerror("Ollama required","No Ollama model is available. Start Ollama and click Refresh models."); return
@@ -431,6 +434,8 @@ class App(tk.Tk):
         save_local_config(cfg)
         if cfg.diarization and (not cfg.diarization_segmentation_model or not cfg.diarization_embedding_model):
             messagebox.showerror("Diarization models required","Provide both local ONNX model paths before enabling diarization."); return
+        self.job_running=True
+        self.start_button.config(state="disabled")
         self.status.set("Running locally…"); threading.Thread(target=self.worker,args=(source,cfg),daemon=True).start()
 
     def worker(self,source,cfg):
