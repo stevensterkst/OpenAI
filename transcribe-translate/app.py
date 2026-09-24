@@ -6,6 +6,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 import webbrowser
 import traceback
+import json
 
 from core.config import ROOT, default_output_dir, load_config, resolve_output_dir, save_local_config
 from core.media import find_ytdlp_command, is_url
@@ -398,7 +399,8 @@ class App(tk.Tk):
 
         def cloud_summary():
             try:
-                prompt_path=write_browser_prompt(job_dir, read("original.txt"), read("job.json").split('"language":',1)[-1][:40] if (job_dir/"job.json").exists() else "source language")
+                meta=json.loads(read("job.json")) if (job_dir/"job.json").exists() else {}
+                prompt_path=write_browser_prompt(job_dir, read("original.txt"), str(meta.get("language") or "source language"))
             except Exception:
                 prompt_path=write_browser_prompt(job_dir, read("original.txt"), "source language")
             win2=tk.Toplevel(win); win2.title("Cloud summary assist — user controlled"); win2.geometry("1000x760")
