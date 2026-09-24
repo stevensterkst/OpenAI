@@ -82,10 +82,13 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
                 progress(f"TRANSCRIPTION RANGE: first {limit/60:.2f} minutes only")
             audio = extract_audio(media, work / "audio.wav", limit)
 
-            transcript = FasterWhisperASR(
+            asr = FasterWhisperASR(
                 cfg.local_model, cfg.language, cfg.compute_type,
                 hotwords=cfg.hotwords, word_timestamps=cfg.word_timestamps, progress=progress,
-            ).transcribe(audio)
+            )
+            transcript = asr.transcribe(audio)
+            # The local ASR backend audits every bounded window and timestamps.
+            # Never pass a partial/invalid transcript into downstream LLM stages.
         else:
             progress("Caption/script path selected: no media download and no Whisper ASR required.")
 
