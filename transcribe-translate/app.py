@@ -447,6 +447,12 @@ class App(tk.Tk):
             self.after(0,lambda:messagebox.showinfo("Complete",f"Job finished.\n\nSaved to:\n{output}"))
         except Exception as exc:
             self.logmsg("ERROR: "+str(exc)); self.after(0,lambda:messagebox.showerror("Processing failed",str(exc))); self.after(0,lambda:self.status.set("Failed"))
+        finally:
+            self.after(0, self._job_finished)
+
+    def _job_finished(self):
+        self.job_running = False
+        self.start_button.config(state="normal")
 
     def open_output(self):
         import os
