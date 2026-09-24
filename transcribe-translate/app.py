@@ -62,6 +62,7 @@ class App(tk.Tk):
         self.advice = tk.StringVar(value="")
         self.performance = tk.StringVar(value="Quick")
         self.watch_stop = None
+        self.job_running = False
         self._build()
         self.apply_performance_profile()
         self.refresh_ollama()
