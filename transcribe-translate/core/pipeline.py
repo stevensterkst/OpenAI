@@ -52,8 +52,10 @@ def _range_seconds(cfg: AppConfig, duration: float) -> float | None:
 
 def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    stem = Path(source).stem[:80] if not is_url(source) else "web-media"
-    job_dir = output_root / f"{stamp}_{stem}"
+    raw_stem = Path(source).stem if not is_url(source) else "web-media"
+    import re
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", raw_stem).strip("-._")[:60] or "job"
+    job_dir = output_root / f"{stamp}_{safe_stem}"
     work = job_dir / "_work"
     work.mkdir(parents=True, exist_ok=True)
 
@@ -171,7 +173,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
             "source": source, "input_media_sha256": media_hash, "language": transcript.language,
             "asr_backend": transcript.backend, "asr_model": transcript.model,
             "word_timestamps": cfg.word_timestamps, "hotwords": cfg.hotwords,
-            "text_provider": "ollama", "text_model": cfg.ollama_model,
+            "text_provider": "ollama", "text_model": cfg.ollama_model, "ollama_num_predict": cfg.ollama_num_predict,
             "ollama_model_advice": {"tier": tier, "note": advice},
             "source_summary": "generated from original-language transcript",
             "english_summary": "translation of source-language summary",
