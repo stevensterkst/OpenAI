@@ -58,6 +58,12 @@ def resolve_output_dir(value: str | Path | None) -> Path:
     }
     if normalized in legacy_exact:
         return default_output_dir()
+    # Migrate any old project-local output directory, including nested copies
+    # left by earlier installations/builds. User content must never be written
+    # into the source repository.
+    parts = [part for part in normalized.split("/") if part]
+    if parts and parts[-1] == "output" and "transcribe-translate" in parts:
+        return default_output_dir()
     p = Path(raw).expanduser()
     if not p.is_absolute():
         return default_output_dir() if p.name.lower() == "output" else (ROOT / p).resolve()
