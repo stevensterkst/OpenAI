@@ -169,11 +169,14 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         )
 
         tier, advice = model_advice(cfg.ollama_model)
+        transcript_sha256 = hashlib.sha256(transcript.text.encode("utf-8")).hexdigest()
         metadata = {
-            "source": source, "input_media_sha256": media_hash, "language": transcript.language,
+            "source": source, "input_media_sha256": media_hash, "transcript_sha256": transcript_sha256,
+            "language": transcript.language,
             "asr_backend": transcript.backend, "asr_model": transcript.model,
             "word_timestamps": cfg.word_timestamps, "hotwords": cfg.hotwords,
             "text_provider": "ollama", "text_model": cfg.ollama_model, "ollama_num_predict": cfg.ollama_num_predict,
+            "summary_provenance": provider.last_response_meta,
             "ollama_model_advice": {"tier": tier, "note": advice},
             "source_summary": "generated from original-language transcript",
             "english_summary": "translation of source-language summary",
