@@ -7,3 +7,7 @@ chrome.runtime.onMessage.addListener(async message=>{
  recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
  recorder.start(1000);
 });
+chrome.runtime.onMessage.addListener(async message => {
+ if(message?.type!=="STOP_RECORDING"||message.target!=="offscreen"||!recorder)return;
+ recorder.stop();
+});
