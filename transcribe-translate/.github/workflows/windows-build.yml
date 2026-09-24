@@ -19,11 +19,17 @@ jobs:
         run: |
           Set-Location transcribe-translate
           .\verify-final.ps1
-      - name: Upload EXE bundle and audit
+      - name: Package verified Windows bundle
+        shell: pwsh
+        run: |
+          Set-Location transcribe-translate
+          Compress-Archive -Path "dist\SS-Transcribe-Translate\*" -DestinationPath "SS-Transcribe-Translate-Windows.zip" -Force
+      - name: Upload EXE bundle, ZIP and audit evidence
         uses: actions/upload-artifact@v4
         with:
           name: SS-Transcribe-Translate-Windows
           path: |
             transcribe-translate/dist/SS-Transcribe-Translate/
+            transcribe-translate/SS-Transcribe-Translate-Windows.zip
             transcribe-translate/FINAL-AUDIT-*.log
             transcribe-translate/SHA256.txt
