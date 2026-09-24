@@ -15,6 +15,7 @@ from core.library import reindex, search_jobs
 from core.watch import watch_folder
 from core.text import OllamaTextProvider, model_advice
 from core.query import TranscriptQuery
+from core.browser_assist import write_browser_prompt, open_chatgpt, open_claude, save_cloud_summary
 
 def set_windows_app_identity():
     if os.name != "nt":
@@ -388,6 +389,29 @@ class App(tk.Tk):
                     self.logmsg("QUERY ERROR: "+str(exc)); win.after(0,lambda:messagebox.showerror("Query failed",str(exc)))
             threading.Thread(target=worker,daemon=True).start()
         ttk.Button(bar,text="Ask",command=do_query).pack(side="left",padx=8)
+
+        def cloud_summary():
+            try:
+                prompt_path=write_browser_prompt(job_dir, read("original.txt"), read("job.json").split('"language":',1)[-1][:40] if (job_dir/"job.json").exists() else "source language")
+            except Exception:
+                prompt_path=write_browser_prompt(job_dir, read("original.txt"), "source language")
+            win2=tk.Toplevel(win); win2.title("Cloud summary assist — user controlled"); win2.geometry("1000x760")
+            tk.Label(win2,text="Optional browser assist. Open ChatGPT or Claude, paste the generated prompt, then paste ONLY their summary below. The desktop app does not log into or automate either website.",wraplength=950,justify="left").pack(anchor="w",padx=12,pady=10)
+            btns=tk.Frame(win2); btns.pack(fill="x",padx=12)
+            tk.Button(btns,text="Open ChatGPT",command=open_chatgpt).pack(side="left",padx=(0,8))
+            tk.Button(btns,text="Open Claude",command=open_claude).pack(side="left",padx=(0,8))
+            tk.Button(btns,text="Open prompt file",command=lambda:os.startfile(prompt_path)).pack(side="left")
+            box=tk.Text(win2,wrap="word"); box.pack(fill="both",expand=True,padx=12,pady=10)
+            def save_cloud():
+                try:
+                    path=save_cloud_summary(job_dir,box.get("1.0","end"))
+                    messagebox.showinfo("Saved",f"Cloud summary saved to:\n{path}")
+                    win2.destroy()
+                except Exception as exc:
+                    messagebox.showerror("Not accepted",str(exc))
+            tk.Button(win2,text="Save cloud summary",command=save_cloud).pack(pady=(0,12))
+
+        ttk.Button(bar,text="Cloud summary assist",command=cloud_summary).pack(side="left",padx=8)
         ttk.Button(bar,text="Open job folder",command=lambda:os.startfile(job_dir)).pack(side="left")
         ttk.Label(top,text="All generated files remain in the job folder. Querying is transcript-grounded; OpenAI is optional and never used automatically.",wraplength=1100).pack(anchor="w")
 
