@@ -20,7 +20,8 @@ class AppConfig:
     word_timestamps: bool = False
     hotwords: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = ""
+    ollama_model: str = "phi4-mini:3.8b"
+    ollama_num_predict: int = 1024
     analysis_language: str = "source"
     target_language: str = "English"
     translate_transcript: bool = False
@@ -82,6 +83,7 @@ def save_local_config(config: AppConfig, path: Path | None = None) -> Path:
         },
         "text": {
             "ollama_model": config.ollama_model,
+            "ollama_num_predict": config.ollama_num_predict,
             "analysis_language": config.analysis_language,
             "target_language": config.target_language,
             "translate_transcript": config.translate_transcript,
