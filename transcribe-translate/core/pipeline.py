@@ -116,7 +116,7 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         source_name = LANGUAGE_NAMES.get(detected_code, detected_code or "source language")
         progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
 
-        provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress)
+        provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress, cfg.ollama_num_predict)
         try:
             source_summary = provider.summarize_source(transcript.text, source_name)
             if not source_summary.strip():
