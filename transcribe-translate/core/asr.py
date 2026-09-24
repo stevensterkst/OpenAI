@@ -29,10 +29,8 @@ class Transcript:
 Progress = Callable[[str], None]
 
 class FasterWhisperASR:
-    # Long recordings are processed in bounded windows. Within each window,
-    # faster-whisper's BatchedInferencePipeline batches VAD speech segments.
-    # This is materially faster than one Whisper call for every 20-45 seconds,
-    # while keeping the decoded PCM bounded on a 16 GB Windows machine.
+    # Process long recordings in bounded windows. Never ask Whisper to load the
+    # whole recording into one inference call.
     CHUNK_SECONDS = 180
 
     def __init__(self, model: str, language: str, compute_type: str,
@@ -71,7 +69,6 @@ class FasterWhisperASR:
     @classmethod
     def _batch_size(cls) -> int:
         ram = cls._ram_gb()
-        # Conservative because Ollama/GUI may also be using RAM.
         if ram >= 16:
             return 4
         if ram >= 12:
@@ -99,29 +96,49 @@ class FasterWhisperASR:
             kwargs["hotwords"] = self.hotwords
         return runner.transcribe(audio, **kwargs)
 
-    def _collect(self, runner, audio, language, batch_size):
-        segments, info = self._run(runner, audio, language, True, batch_size)
+    @staticmethod
+    def _collect_segments(items, word_timestamps: bool) -> list[Segment]:
         collected = []
+        for segment in items:
+            text = segment.text.strip()
+            if not text:
+                continue
+            words = None
+            if word_timestamps and getattr(segment, "words", None):
+                words = [
+                    Word(float(w.start), float(w.end), str(w.word),
+                         float(w.probability) if getattr(w, "probability", None) is not None else None)
+                    for w in segment.words
+                ]
+            collected.append(Segment(
+                float(segment.start), float(segment.end), text, words=words
+            ))
+        return collected
 
-        def collect_from(items):
-            for segment in items:
-                text = segment.text.strip()
-                if not text:
-                    continue
-                words = None
-                if self.word_timestamps and getattr(segment, "words", None):
-                    words = [
-                        Word(float(w.start), float(w.end), str(w.word),
-                             float(w.probability) if getattr(w, "probability", None) is not None else None)
-                        for w in segment.words
-                    ]
-                collected.append(Segment(float(segment.start), float(segment.end), text, words=words))
+    def _collect(self, runner, audio, language, batch_size, window_seconds: float):
+        # First use VAD so silence does not become hallucinated speech.
+        segments, info = self._run(runner, audio, language, True, batch_size)
+        collected = self._collect_segments(segments, self.word_timestamps)
 
-        collect_from(segments)
-        if not collected:
-            self.progress("No speech survived VAD in this window; retrying without VAD.")
+        # VAD is allowed to reject a whole window, but it is NOT allowed to make
+        # that window disappear silently. Retry without VAD.
+        # Also retry when VAD produced an implausibly tiny result for a normal
+        # speech recording; this catches aggressive VAD misses without making
+        # every silent window expensive.
+        text_chars = sum(len(s.text) for s in collected)
+        suspicious = (
+            not collected
+            or (window_seconds >= 15 and text_chars < max(8, window_seconds * 0.35))
+        )
+        if suspicious:
+            reason = "no speech survived VAD" if not collected else (
+                f"VAD returned only {text_chars} text characters for a {window_seconds:.1f}s window"
+            )
+            self.progress(f"VAD coverage check: {reason}; retrying window without VAD.")
             segments, info = self._run(runner, audio, language, False, batch_size)
-            collect_from(segments)
+            fallback = self._collect_segments(segments, self.word_timestamps)
+            if fallback:
+                collected = fallback
         return collected, info
 
     def transcribe(self, audio: Path) -> Transcript:
@@ -170,28 +187,34 @@ class FasterWhisperASR:
                 (start, min(frames, start + chunk_frames))
                 for start in range(0, frames, chunk_frames)
             ]
-            if len(ranges) > 1:
-                self.progress(
-                    f"Long-recording mode: {len(ranges)} bounded windows; "
-                    f"batched speech inference={batch_size}. RAM remains bounded."
-                )
+
+            self.progress(
+                f"ASR coverage plan: {len(ranges)} window(s) covering "
+                f"0.0–{duration/60:.2f} minutes."
+            )
 
             all_segments = []
             detected_language = None
 
             for i, (start, end) in enumerate(ranges, 1):
                 offset = start / float(rate)
+                window_seconds = (end - start) / float(rate)
                 wf.setpos(start)
                 raw = wf.readframes(end - start)
                 samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
                 self.progress(
-                    f"ASR window {i}/{len(ranges)} — {offset/60:.1f}–{end/rate/60:.1f} min"
+                    f"ASR window {i}/{len(ranges)} — "
+                    f"{offset/60:.2f}–{end/rate/60:.2f} min "
+                    f"({window_seconds:.1f}s)"
                 )
                 collected, info = self._collect(
-                    runner, samples, language or detected_language, batch_size
+                    runner, samples, language or detected_language,
+                    batch_size, window_seconds
                 )
                 if detected_language is None:
                     detected_language = getattr(info, "language", None) or language
+
                 for s in collected:
                     s.start += offset
                     s.end += offset
@@ -201,10 +224,24 @@ class FasterWhisperASR:
                             w.end += offset
                     all_segments.append(s)
 
+                self.progress(
+                    f"ASR window {i}/{len(ranges)} complete: "
+                    f"{len(collected)} segment(s)."
+                )
+
         if not all_segments:
             raise RuntimeError(
                 "Local transcription produced zero speech segments. No downstream AI stage was run."
             )
+
+        # The final segment timeline must never extend beyond the actual audio.
+        # This catches offset/unit regressions before downstream summaries run.
+        for s in all_segments:
+            if s.start < 0 or s.end < s.start or s.end > duration + 0.5:
+                raise RuntimeError(
+                    f"ASR timestamp audit failed: segment {s.start:.3f}–{s.end:.3f}s "
+                    f"is outside the {duration:.3f}s source audio."
+                )
 
         return Transcript(
             text="\n".join(s.text for s in all_segments),
