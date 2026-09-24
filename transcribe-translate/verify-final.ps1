@@ -24,6 +24,14 @@ print("runtime imports OK")
   $importExit=$LASTEXITCODE
   Remove-Item -LiteralPath $importCheck -Force -ErrorAction SilentlyContinue
   if($importExit){throw "Runtime imports FAILED"}
+  $req=Get-Content requirements.txt -Raw
+  if($req -match '(?im)^\s*(torch|openai-whisper|whisperx|torchaudio|pyannote)') {
+    throw "Forbidden runtime dependency found in requirements.txt"
+  }
+  $gitignore=Get-Content .gitignore -Raw
+  foreach($requiredIgnore in @("config.local.json","*.local.json","_work/")) {
+    if($gitignore -notmatch [regex]::Escape($requiredIgnore)){throw "Required .gitignore rule missing: $requiredIgnore"}
+  }
   Write-Host "PASS: required local runtime imports"
 
   $bad=Get-ChildItem app.py,core -Recurse -File -Filter *.py | Select-String -Pattern '(^|\s)(import|from) (torch|whisper|whisperx|torchaudio|pyannote)(\s|$)'
