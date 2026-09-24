@@ -417,7 +417,18 @@ class App(tk.Tk):
                     win2.destroy()
                 except Exception as exc:
                     messagebox.showerror("Not accepted",str(exc))
-            tk.Button(win2,text="Save cloud summary",command=save_cloud).pack(pady=(0,12))
+            def use_as_primary():
+                try:
+                    value=box.get("1.0","end").strip()
+                    path=job_dir/"source_summary.md"
+                    if len(value)<80: raise ValueError("Cloud summary is too short.")
+                    path.write_text("# Source-language summary\\n\\n"+value+"\\n",encoding="utf-8")
+                    messagebox.showinfo("Primary summary replaced",f"Source summary replaced with the user-approved cloud result:\\n{path}")
+                    win2.destroy()
+                except Exception as exc:
+                    messagebox.showerror("Not accepted",str(exc))
+            tk.Button(win2,text="Save cloud summary",command=save_cloud).pack(side="left",padx=(0,8),pady=(0,12))
+            tk.Button(win2,text="Use as PRIMARY source summary",command=use_as_primary).pack(side="left",pady=(0,12))
 
         ttk.Button(bar,text="Cloud summary assist",command=cloud_summary).pack(side="left",padx=8)
         ttk.Button(bar,text="Open job folder",command=lambda:os.startfile(job_dir)).pack(side="left")
