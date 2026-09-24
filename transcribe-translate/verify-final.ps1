@@ -10,6 +10,15 @@ try {
   python -m unittest discover -s tests -p "test_*.py" -v
   if($LASTEXITCODE){throw "Python unit tests FAILED"}
   Write-Host "PASS: Python compileall + unit tests"
+  $cfgPath = Join-Path $PSScriptRoot "config.json"
+  $outProbe = python -c "from core.config import load_config; print(load_config(r'$cfgPath').output_dir)"
+  $outProbe = $outProbe.Trim()
+  $rootFull = $PSScriptRoot.TrimEnd('\\') + '\\'
+  if($outProbe -like "$rootFull*"){throw "output_dir is inside repo root: $outProbe"}
+  $expectedOut = Join-Path $HOME "Downloads\Transcribe-Translate"
+  if([IO.Path]::GetFullPath($outProbe) -ne [IO.Path]::GetFullPath($expectedOut)){throw "Default output_dir mismatch: $outProbe (expected $expectedOut)"}
+  Write-Host "PASS: output_dir is outside repository and defaults to Downloads\\Transcribe-Translate"
+
 
   $importCheck = Join-Path $env:TEMP "ss_transcribe_import_check.py"
   @'
