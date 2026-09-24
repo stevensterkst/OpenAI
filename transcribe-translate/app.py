@@ -16,6 +16,7 @@ from core.watch import watch_folder
 from core.text import OllamaTextProvider, model_advice
 from core.query import TranscriptQuery
 from core.browser_assist import write_browser_prompt, open_chatgpt, open_claude, save_cloud_summary
+from core.browser_bridge import BrowserBridge
 
 def set_windows_app_identity():
     if os.name != "nt":
@@ -64,6 +65,11 @@ class App(tk.Tk):
         self.performance = tk.StringVar(value="Quick")
         self.watch_stop = None
         self.job_running = False
+        self.browser_bridge = BrowserBridge(default_output_dir() / "_browser-inbox", os.environ.get("SS_BROWSER_BRIDGE_TOKEN", ""), self.logmsg)
+        try:
+            self.browser_bridge.start()
+        except OSError as exc:
+            self.browser_bridge = None
         self._build()
         self.apply_performance_profile()
         self.refresh_ollama()
