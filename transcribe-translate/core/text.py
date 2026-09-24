@@ -83,26 +83,82 @@ class OllamaTextProvider:
             "will be consolidated later.\n\n" + chunk
         )
 
+    @staticmethod
+    def _summary_quality_ok(text: str, transcript: str) -> bool:
+        value = (text or "").strip()
+        if len(value) < 80:
+            return False
+        lines = [x.strip() for x in value.splitlines() if x.strip()]
+        # Reject the characteristic small-model failure seen in testing:
+        # one generic sentence repeated under many headings.
+        if len(lines) >= 6:
+            unique = {x.lower() for x in lines if len(x) > 35}
+            if len(unique) <= max(2, len(lines) // 3):
+                return False
+        # Reject obvious meta/template output rather than a summary of the
+        # supplied recording.
+        bad = ("voting positions", "voting procedures", "questions and questions",
+               "no statement on", "pas de déclaration sur")
+        low = value.lower()
+        bad_hits = sum(1 for marker in bad if marker in low)
+        if bad_hits >= 2:
+            return False
+        # A summary must have some lexical connection to the transcript.
+        source_words = {w for w in re.findall(r"[a-zà-ÿ]{4,}", transcript.lower())}
+        summary_words = {w for w in re.findall(r"[a-zà-ÿ]{4,}", value.lower())}
+        return len(source_words & summary_words) >= 5
+
+    def _summary_call(self, transcript: str, source_language: str) -> str:
+        return self._call(
+            f"""You are summarizing an actual spoken {source_language} transcript.
+Write a concise but information-dense factual summary in {source_language}.
+Use ONLY information explicitly present in the transcript.
+Do NOT use a generic meeting/legal template. Do NOT invent sections such as voting,
+deadlines or decisions unless the transcript actually contains them.
+Do NOT repeat the same fact. Preserve the sequence of the discussion and distinguish
+what was said from uncertainty or misunderstanding. Mention important names/terms,
+proposals, questions, practical next steps and unresolved points only when evidenced.
+For a short recording, produce a short summary rather than padding it.
+
+TRANSCRIPT:
+{transcript}"""
+        )
+
     def summarize_source(self, transcript: str, source_language: str) -> str:
         parts = chunk_text(transcript)
+        self.progress(f"Source-language summary: {source_language} [{self.model}]")
         if len(parts) == 1:
-            self.progress(f"Source-language summary: {source_language} [{self.model}]")
-            return self._call(
-                f"Produce a comprehensive summary in {source_language} of the transcript below. "
-                "This is the PRIMARY summary. Base it only on the transcript. Preserve all material facts, "
-                "important arguments, decisions, proposals, objections, questions, named people or organisations, "
-                "dates, amounts, conditions, votes or voting positions when stated, action items, deadlines, "
-                "uncertainties and unresolved issues. Do not invent, infer, or silently omit material information. "
-                "Keep the structure useful for later knowledge-management and legal/meeting review.\n\n" + transcript
+            result = self._summary_call(transcript, source_language)
+        else:
+            summaries = [self._source_chunk_summary(part, source_language, i, len(parts)) for i, part in enumerate(parts, 1)]
+            self.progress(f"Consolidating {len(summaries)} source-summary chunks [{self.model}]")
+            result = self._call(
+                f"Consolidate these intermediate summaries into one factual, non-repetitive summary in {source_language}. "
+                "Use only their contents. Do not add generic headings or facts not evidenced. Remove duplication "
+                "while retaining distinct facts and uncertainties.\n\n" + "\n\n---\n\n".join(summaries)
             )
-        summaries = [self._source_chunk_summary(part, source_language, i, len(parts)) for i, part in enumerate(parts, 1)]
-        self.progress(f"Consolidating {len(summaries)} source-summary chunks [{self.model}]")
-        return self._call(
-            f"Consolidate these intermediate summaries into one comprehensive summary in {source_language}. "
-            "Use only their contents. Preserve material facts, arguments, decisions, proposals, objections, "
-            "questions, names, dates, amounts, conditions, votes, action items, deadlines, uncertainties and "
-            "unresolved issues. Do not invent, infer or silently omit. Remove duplication while retaining distinct "
-            "facts.\n\n" + "\n\n---\n\n".join(summaries)
+        if self._summary_quality_ok(result, transcript):
+            return result
+
+        # If a small/fast model produces template/repetition garbage, retry with
+        # a stronger installed local model. Never silently use a cloud provider.
+        try:
+            available = self.list_models()
+        except Exception:
+            available = []
+        candidates = ["qwen3:1.7b", "phi4-mini:3.8b"]
+        for candidate in candidates:
+            if candidate == self.model or candidate not in available:
+                continue
+            self.progress(f"Summary quality check failed with {self.model}; retrying with local {candidate}.")
+            backup = OllamaTextProvider(self.url, candidate, self.progress)
+            retry = backup._summary_call(transcript, source_language)
+            if backup._summary_quality_ok(retry, transcript):
+                self.progress(f"SUMMARY QUALITY PASS: {candidate}")
+                return retry
+        raise RuntimeError(
+            f"Source summary from {self.model} failed the factual/repetition quality gate. "
+            "No acceptable local fallback was available."
         )
 
     def analyze_source(self, timestamped_transcript: str, source_language: str) -> str:
