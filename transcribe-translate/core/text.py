@@ -45,6 +45,7 @@ class OllamaTextProvider:
         self.model = model
         self.progress = progress
         self.num_predict = max(1024, int(num_predict))
+        self.last_response_meta: dict[str, object] = {}
 
     def list_models(self) -> list[str]:
         try:
@@ -70,7 +71,9 @@ class OllamaTextProvider:
         )
         if response.status_code >= 400:
             raise RuntimeError(f"Ollama request failed ({response.status_code}): {response.text[:3000]}")
-        content = str(response.json().get("message", {}).get("content", "")).strip()
+        data = response.json()
+        self.last_response_meta = {"prompt_sha256": __import__("hashlib").sha256(prompt.encode("utf-8")).hexdigest(), "response_token_count": data.get("eval_count"), "prompt_token_count": data.get("prompt_eval_count"), "truncated": bool(data.get("done") is False)}
+        content = str(data.get("message", {}).get("content", "")).strip()
         if not content:
             raise RuntimeError("Ollama returned an empty response.")
         return content
