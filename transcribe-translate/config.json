@@ -8,7 +8,8 @@
   },
   "text": {
     "ollama_url": "http://127.0.0.1:11434",
-    "ollama_model": "qwen3:1.7b",
+    "ollama_model": "phi4-mini:3.8b",
+    "ollama_num_predict": 1024,
     "analysis_language": "source",
     "translate_transcript": false,
     "analysis": false,
