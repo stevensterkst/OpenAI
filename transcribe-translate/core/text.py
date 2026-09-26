@@ -48,6 +48,24 @@ class OllamaTextProvider:
         self.num_predict = max(1024, int(num_predict))
         self.last_response_meta: dict[str, object] = {}
 
+    def runtime_status(self) -> dict:
+        try:
+            response = requests.get(f"{self.url}/api/ps", timeout=5)
+            response.raise_for_status()
+            models = response.json().get("models", [])
+            rows = []
+            for item in models:
+                rows.append({
+                    "name": item.get("name") or item.get("model"),
+                    "size": item.get("size"),
+                    "size_vram": item.get("size_vram"),
+                    "context_length": item.get("context_length"),
+                    "expires_at": item.get("expires_at"),
+                })
+            return {"ok": True, "models": rows}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "models": []}
+
     def list_models(self) -> list[str]:
         try:
             response = requests.get(f"{self.url}/api/tags", timeout=10)
