@@ -165,3 +165,11 @@ It never runs the obsolete Whisper/Torch cleanup unless -CleanupObsoleteWhisper 
 The packaged executable is produced at:
 
     dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe
+
+## Resource usage and GPU reality (Windows)
+
+SS does not assume that Ollama or Whisper are GPU-only. Ollama reports actual model placement through `ollama ps`; its Processor column distinguishes 100% GPU, 100% CPU, and CPU/GPU split. On Windows, AMD acceleration depends on the supported ROCm stack or the Vulkan backend. CTranslate2's prebuilt Windows GPU path is CUDA-based, so the current faster-whisper path on an AMD-only laptop remains CPU unless a supported CUDA GPU is present.
+
+Use `CHECK-OLLAMA-RESOURCE.ps1` to inspect the actual Ollama placement. Use `SET-OLLAMA-RESOURCE-SAFE.ps1` to keep only one model/request resident, retain models for five minutes, enable Flash Attention and reduce KV-cache memory. This is deliberately conservative for a low-RAM integrated-GPU laptop.
+
+Translation chunks are now allowed to execute concurrently at the application layer (maximum two), but Ollama's own `OLLAMA_NUM_PARALLEL` setting remains the final resource gate. Do not increase it on an integrated/shared-memory GPU unless `ollama ps` and real throughput testing show that the additional KV-cache memory is safe.
