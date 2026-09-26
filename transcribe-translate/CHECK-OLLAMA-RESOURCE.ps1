@@ -15,3 +15,7 @@ Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVers
 Write-Host "Interpretation: ollama ps is authoritative for CPU/GPU model placement."Write-Host ""
 Write-Host "llama-server.exe processes (if any):"
 Get-CimInstance Win32_Process -Filter "Name = 'llama-server.exe'" | Select-Object ProcessId,ExecutablePath,CommandLine | Format-List
+
+Write-Host ""
+Write-Host "Ollama-related processes (including runners):"
+Get-CimInstance Win32_Process | Where-Object { $_.Name -match "^(ollama|llama-server).*\\.exe$" } | Select-Object Name,ProcessId,@{N="WorkingSetMB";E={[math]::Round($_.WorkingSetSize/1MB,1)}},ExecutablePath,CommandLine | Format-List
