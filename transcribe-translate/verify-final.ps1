@@ -18,6 +18,13 @@ try {
   $expectedOut = Join-Path $HOME "Downloads\Transcribe-Translate"
   if([IO.Path]::GetFullPath($outProbe) -ne [IO.Path]::GetFullPath($expectedOut)){throw "Default output_dir mismatch: $outProbe (expected $expectedOut)"}
   Write-Host "PASS: output_dir is outside repository and defaults to Downloads\\Transcribe-Translate"
+  foreach($required in @("core/outputs.py","core/text.py","SET-OLLAMA-RESOURCE-SAFE.ps1","CHECK-OLLAMA-RESOURCE.ps1","tests/test_output_descriptions.py")){
+    if(-not (Test-Path (Join-Path $PSScriptRoot $required))){throw "Missing resource/output requirement file: $required"}
+  }
+  $outputSource = Get-Content (Join-Path $PSScriptRoot "core/outputs.py") -Raw
+  if($outputSource -notmatch "FILE_INDEX.md"){throw "Output file index implementation missing."}
+  if($outputSource -notmatch "ten-plus-word"){throw "Output description requirement marker missing."}
+  Write-Host "PASS: resource controls and explicit output-file descriptions present"
 
 
   $importCheck = Join-Path $env:TEMP "ss_transcribe_import_check.py"
