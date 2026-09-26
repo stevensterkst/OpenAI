@@ -12,4 +12,6 @@ Write-Host "Currently loaded models:"
 Write-Host ""
 Write-Host "GPU adapters:"
 Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | Format-Table -AutoSize
-Write-Host "Interpretation: ollama ps is authoritative for CPU/GPU model placement."
+Write-Host "Interpretation: ollama ps is authoritative for CPU/GPU model placement."Write-Host ""
+Write-Host "llama-server.exe processes (if any):"
+Get-CimInstance Win32_Process -Filter "Name = 'llama-server.exe'" | Select-Object ProcessId,ExecutablePath,CommandLine | Format-List
