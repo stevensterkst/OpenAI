@@ -72,7 +72,7 @@ def write_english_summary(summary: str, directory: Path) -> None:
         + summary.strip() + "\n", encoding="utf-8"
     )
 
-OUTPUT_FILE_DESCRIPTIONS = {
+OUTPUT_FILE_DESCRIPTIONS = {  # ten-plus-word content descriptions for every generated output
     "original.txt": ("Literal Source Transcript In Spoken Language", "The complete literal transcript of spoken content, preserving source language without LLM translation or paraphrase."),
     "original.json": ("Machine Readable Source Transcript With Provenance", "Structured source transcript containing language, model, segments, timestamps, speakers, source reference, and provenance metadata."),
     "original.srt": ("Timestamped Source Transcript For Subtitle Players", "Standard SRT subtitle file containing the original spoken transcript with precise segment start and end timestamps."),
