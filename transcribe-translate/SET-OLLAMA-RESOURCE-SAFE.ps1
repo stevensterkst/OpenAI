@@ -11,7 +11,7 @@
 Write-Host "Ollama GPU-first profile saved for the current Windows user."
 Write-Host "OLLAMA_VULKAN=1 requests Vulkan GPU discovery for supported AMD Windows hardware.
 Write-Host "OLLAMA_IGPU_ENABLE=1 permits integrated AMD GPUs to be selected."
-Write-Host "GGML_VK_VISIBLE_DEVICES=0 selects Vulkan device 0; verify this is the Radeon with the diagnostic."" -ForegroundColor Green
+Write-Host "GGML_VK_VISIBLE_DEVICES=0 selects Vulkan device 0."" -ForegroundColor Green
 Write-Host "Quit Ollama completely from the taskbar, then start it again." -ForegroundColor Yellow
 Write-Host "After restart run: ollama ps" -ForegroundColor Cyan
 Write-Host "GPU-only operation must be verified with ollama ps." -ForegroundColor Yellow
