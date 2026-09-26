@@ -56,6 +56,7 @@ def write_transcript_outputs(transcript: Transcript, directory: Path, source: st
         vtt.extend([f"{_ts(segment.start, False)} --> {_ts(segment.end, False)}", body, ""])
     (directory / "original.srt").write_text("\n".join(srt), encoding="utf-8")
     (directory / "original.vtt").write_text("\n".join(vtt), encoding="utf-8")
+    write_output_file_index(directory, source)
 
 def write_source_summary(summary: str, source_language: str, directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
