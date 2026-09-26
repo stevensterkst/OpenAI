@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 from typing import Callable
+from concurrent.futures import ThreadPoolExecutor
 import requests
 
 Progress = Callable[[str], None]
@@ -223,15 +224,22 @@ EVIDENCE:
         )
 
     def translate(self, text: str, target_language: str, purpose: str = "transcript") -> str:
-        outputs = []
-        for index, part in enumerate(chunk_text(text), 1):
-            self.progress(f"Local {purpose} translation: part {index} -> {target_language} [{self.model}]")
-            outputs.append(self._call(
+        parts = chunk_text(text)
+        if not parts:
+            return ""
+        workers = min(2, len(parts))
+        def translate_part(item):
+            index, part = item
+            self.progress(f"Local {purpose} translation: part {index}/{len(parts)} -> {target_language} [{self.model}]")
+            return index, self._call(
                 f"Translate this {purpose} faithfully into {target_language}. Do not summarize. Preserve names, "
                 "numbers, dates, legal/voting terminology, uncertainty, negation, speaker meaning and all "
                 "substantive details. Do not add commentary.\n\n" + part
-            ))
-        return "\n\n".join(outputs)
+            )
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="ss-translate") as pool:
+            results = list(pool.map(translate_part, enumerate(parts, 1)))
+        results.sort(key=lambda x: x[0])
+        return "\n\n".join(value for _, value in results)
 
     def _looks_like_english(self, text: str) -> bool:
         value = " " + text.lower().replace("\n", " ") + " "
