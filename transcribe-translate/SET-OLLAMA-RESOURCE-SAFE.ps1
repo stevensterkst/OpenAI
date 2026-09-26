@@ -5,7 +5,9 @@
 [Environment]::SetEnvironmentVariable("OLLAMA_KEEP_ALIVE","5m","User")
 [Environment]::SetEnvironmentVariable("OLLAMA_FLASH_ATTENTION","1","User")
 [Environment]::SetEnvironmentVariable("OLLAMA_KV_CACHE_TYPE","q8_0","User")
-Write-Host "Ollama safe profile saved for the current Windows user." -ForegroundColor Green
+[Environment]::SetEnvironmentVariable("OLLAMA_VULKAN","1","User")
+Write-Host "Ollama GPU-first profile saved for the current Windows user."
+Write-Host "OLLAMA_VULKAN=1 requests Vulkan GPU discovery for supported AMD Windows hardware." -ForegroundColor Green
 Write-Host "Quit Ollama completely from the taskbar, then start it again." -ForegroundColor Yellow
 Write-Host "After restart run: ollama ps" -ForegroundColor Cyan
 Write-Host "GPU-only operation must be verified with ollama ps." -ForegroundColor Yellow
