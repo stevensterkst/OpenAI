@@ -117,6 +117,15 @@ def run_job(source: str, cfg: AppConfig, output_root: Path, progress=print) -> P
         progress(f"PRIMARY TRANSCRIPT COMPLETE: {source_name}")
 
         provider = OllamaTextProvider(cfg.ollama_url, cfg.ollama_model, progress, cfg.ollama_num_predict)
+        runtime = provider.runtime_status()
+        if runtime.get("ok"):
+            for loaded in runtime.get("models", []):
+                size_vram = loaded.get("size_vram")
+                size = loaded.get("size")
+                processor = "GPU" if size_vram and size and int(size_vram) >= int(size) else ("CPU/GPU" if size_vram else "CPU/unknown")
+                progress(f"OLLAMA RESOURCE: {loaded.get(chr(34)+chr(110)+chr(97)+chr(109)+chr(101)+chr(34))} -> {processor}; model={size} bytes; VRAM={size_vram} bytes")
+        else:
+            progress(f"OLLAMA RESOURCE: unable to query /api/ps: {runtime.get(chr(34)+chr(101)+chr(114)+chr(114)+chr(111)+chr(114)+chr(34))}")
         try:
             source_summary = provider.summarize_source(transcript.text, source_name)
             if not source_summary.strip():
