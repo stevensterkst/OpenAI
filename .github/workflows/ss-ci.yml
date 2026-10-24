@@ -17,3 +17,29 @@ jobs:
       - run: python tests/test_hardening.py
       - name: 0.8.4 canonical Brain smoke test
         run: python -c "from ss_entry import APP, VERSION; routes={getattr(r,'path',None) for r in APP.routes if getattr(r,'path',None)}; required={'/','/console','/workspace','/system','/api/providers','/api/resources','/api/storage','/api/chats','/api/models','/api/chat','/api/auto-chat','/api/route','/api/workspace/scan','/api/workspace/extract','/api/workspace/duplicates','/api/workspace/context'}; missing=required-routes; assert VERSION == '0.8.4'; assert not missing, missing; print('SS v0.8.4 canonical Brain smoke test OK')"
+
+  windows-shortcut-script-parse:
+    name: Windows shortcut script syntax
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse shortcut and mobile launcher PowerShell scripts
+        shell: pwsh
+        run: |
+          $files = @(
+            "REPAIR-SS-SHORTCUTS.ps1",
+            "INSTALL-SS-BRAIN-SHORTCUTS.ps1",
+            "scrcpy-wireless-launcher/install-taskbar-shortcut.ps1",
+            "scrcpy-wireless-launcher/launch-phone.ps1",
+            "scrcpy-wireless-launcher/find-phone.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error ("{0}: {1} at line {2}" -f $file, $_.Message, $_.Extent.StartLineNumber) }
+              throw ("PowerShell syntax validation failed for {0}" -f $file)
+            }
+            Write-Host ("PASS: {0}" -f $file)
+          }
