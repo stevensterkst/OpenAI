@@ -24,14 +24,14 @@ Write-Host "    Serial: $Serial"
 Write-Host "    ADB model: $model"
 Write-Host "    Expected window: $Title"
 
-$args = @(
+$scrcpyArgs = @(
     '-s',
     $Serial,
     ('--window-title="' + $Title + '"')
 )
 
 try {
-    $p = Start-Process -FilePath $ScrcpyPath -ArgumentList $args -PassThru
+    $p = Start-Process -FilePath $ScrcpyPath -ArgumentList $scrcpyArgs -PassThru
     Start-Sleep -Milliseconds 700
 
     if ($p.HasExited) {
