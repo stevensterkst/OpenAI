@@ -17,7 +17,11 @@ echo Repository: %CD%
 echo ============================================================
 where git >nul 2>nul || (echo ERROR: Git is required.&pause&exit /b 1)
 echo Updating from GitHub (fast-forward only; NO reset/delete)...
-git pull --ff-only origin main || (echo ERROR: update stopped safely.&pause&exit /b 1)
+git pull --ff-only origin main
+if errorlevel 1 (
+  echo WARNING: GitHub update could not be applied safely.
+  echo Continuing with the existing local checkout; no reset or deletion was attempted.
+)
 if not exist "ss_entry.py" (echo ERROR: canonical ss_entry.py missing.&pause&exit /b 1)
 set "PY=%CD%\.venv\Scripts\python.exe"
 if not exist "%PY%" if exist "%HERE%checkout.venv\Scripts\python.exe" set "PY=%HERE%checkout.venv\Scripts\python.exe"
@@ -29,7 +33,12 @@ echo Python: %PY%
 echo Credential store: Windows keyring.
 set "SSPID="
 for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$p=Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'uvicorn.*(ss_entry:APP|app_integrated:APP).*--port 8765' }; if($p){$p.ProcessId}"`) do set "SSPID=%%P"
-if defined SSPID (echo Stopping existing SS server PID !SSPID!...&taskkill /PID !SSPID! /T /F >nul 2>nul&timeout /t 1 /nobreak >nul)
+if defined SSPID (
+  echo SS Brain is already running as PID !SSPID!.
+  echo Opening the existing local application without stopping or restarting it.
+  start "" "http://127.0.0.1:%PORT%/"
+  exit /b 0
+)
 set "OWNER="
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%PORT% .*LISTENING"') do set "OWNER=%%P"
 if defined OWNER (echo ERROR: 8765 is occupied by unrelated PID !OWNER!. Nothing else will be killed.&pause&exit /b 3)
