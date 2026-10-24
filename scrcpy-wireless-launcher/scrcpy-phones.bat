@@ -71,7 +71,7 @@ echo ---------------- DEVICE VERIFICATION ----------------
 
 if defined G85_SERIAL (
     echo [FOUND] Moto G85 candidate: !G85_SERIAL!
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G85_SERIAL!" -Title "Moto G85"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G85_SERIAL!" -Title "Moto G85" -ExpectedModel "moto g85 5G"
     if errorlevel 1 echo [ERROR] Moto G85 scrcpy launch failed.
 ) else (
     echo [--] Moto G85 not currently available.
@@ -79,7 +79,7 @@ if defined G85_SERIAL (
 
 if defined G54_SERIAL (
     echo [FOUND] Moto G54 candidate: !G54_SERIAL!
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G54_SERIAL!" -Title "Moto G54"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G54_SERIAL!" -Title "Moto G54" -ExpectedModel "moto g54 5G"
     if errorlevel 1 echo [ERROR] Moto G54 scrcpy launch failed.
 ) else (
     echo [--] Moto G54 not currently available.
