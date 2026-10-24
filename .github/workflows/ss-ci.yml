@@ -28,6 +28,7 @@ jobs:
         run: |
           $files = @(
             "REPAIR-SS-SHORTCUTS.ps1",
+            "open-ss-browser.ps1",
             "INSTALL-SS-BRAIN-SHORTCUTS.ps1",
             "scrcpy-wireless-launcher/install-taskbar-shortcut.ps1",
             "scrcpy-wireless-launcher/launch-phone.ps1",
