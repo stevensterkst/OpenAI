@@ -9,7 +9,10 @@ param(
     [string]$Serial,
 
     [Parameter(Mandatory=$true)]
-    [string]$Title
+    [string]$Title,
+
+    [Parameter(Mandatory=$false)]
+    [string]$ExpectedModel = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +21,13 @@ $model = (& $AdbPath -s $Serial shell getprop ro.product.model 2>$null | Select-
 if (-not $model) {
     Write-Host "[ERROR] Could not verify device model for $Serial"
     exit 2
+}
+if ($ExpectedModel) {
+    $normalize = { param($value) (($value -replace '_',' ' -replace '\s+',' ').Trim().ToLowerInvariant()) }
+    if ((& $normalize $model) -ne (& $normalize $ExpectedModel)) {
+        Write-Host "[ERROR] Model mismatch: serial $Serial reports '$model', expected '$ExpectedModel'. Refusing to open the wrong phone."
+        exit 5
+    }
 }
 
 Write-Host "    Serial: $Serial"
