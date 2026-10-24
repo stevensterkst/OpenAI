@@ -8,8 +8,9 @@ It is designed to replace fixed-IP/fixed-port launch scripts and vendor-specific
 
 **FIRST TIME**
 1. Run `install-taskbar-shortcut.bat`.
-2. Pin **SCRCPY Wireless Phones** to the Windows taskbar.
-3. Use that taskbar icon to launch the phones.
+2. The installer creates and verifies **SS Mobile View** shortcuts on the Desktop and Start Menu.
+3. Pin **SS Mobile View** from Start Menu to the taskbar (Windows may require this step interactively).
+4. Use the Desktop or taskbar shortcut to launch the phones.
 
 **EVERYDAY USE**
 - **Launch phones:** double-click the taskbar icon, or run `scrcpy-phones.bat`.
@@ -52,7 +53,7 @@ The launcher searches common Windows installation locations and PATH. It does **
 1. Install scrcpy and Android Platform-Tools.
 2. Put `scrcpy-phones.bat` somewhere permanent.
 3. Double-click it to launch the phones that are currently visible to ADB.
-4. To create a Start-menu shortcut with the scrcpy icon, run PowerShell:
+4. To repair/create the Start Menu and Desktop shortcuts with the scrcpy icon, run PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install-taskbar-shortcut.ps1
