@@ -19,6 +19,16 @@ SS is a local-first intelligent orchestration layer. It chooses a suitable model
 - Windows OS credential-store integration for provider keys; credentials are not written to GitHub, source code or chat archives.
 - Canonical 8765 composition entry: `ss_entry.py` mounts Brain + Provider Console + read-only Workspace.
 
+## Windows shortcuts
+
+To repair/create the SS Brain desktop and Start Menu shortcuts from this checkout, run PowerShell in the repository root:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\INSTALL-SS-BRAIN-SHORTCUTS.ps1
+```
+
+The installer verifies both shortcut targets and working directories. Then pin **SS Second Brain** from the Start Menu to the taskbar; Windows may require the pin action to be done interactively.
+
 ## Use
 
 Run `run-SS.bat`. It pulls the current fast-forward GitHub build, creates/updates `.venv`, installs requirements, safely reuses/restarts an existing SS process occupying 8765, and starts the **canonical `ss_entry:APP`** at **127.0.0.1:8765**. It never terminates an unrelated process occupying the port. The integrated workspace is at `127.0.0.1:8765/workspace`.
