@@ -78,13 +78,20 @@ $transcribeRoots = @(
     (Join-Path $homeDir "Own code\Transcribe-Translate"),
     (Join-Path $homeDir "OpenAI\Transcribe-Translate"),
     (Join-Path $homeDir "Transcribe-Translate"),
-    (Join-Path $homeDir "OpenAI\transcribe-translate")
+    (Join-Path $homeDir "OpenAI\transcribe-translate"),
+    (Join-Path $homeDir "Downloads\SS-Transcribe-Translate-Windows"),
+    (Join-Path $homeDir "Downloads\SS-Transcribe-Translate"),
+    (Join-Path $homeDir "Downloads\Transcribe-Translate")
 ) | Select-Object -Unique
+# Prefer a packaged GUI build anywhere in the known locations, then fall back
+# to the source checkout's Python launcher.
 $transcribeRoot = $transcribeRoots | Where-Object {
-    (Test-Path -LiteralPath (Join-Path $_ "START-APP.cmd")) -or
     (Test-Path -LiteralPath (Join-Path $_ "SS-Transcribe-Translate.exe")) -or
     (Test-Path -LiteralPath (Join-Path $_ "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe"))
 } | Select-Object -First 1
+if (-not $transcribeRoot) {
+    $transcribeRoot = $transcribeRoots | Where-Object { Test-Path -LiteralPath (Join-Path $_ "START-APP.cmd") } | Select-Object -First 1
+}
 if ($transcribeRoot) {
     $exe = Join-Path $transcribeRoot "dist\SS-Transcribe-Translate\SS-Transcribe-Translate.exe"
     if (-not (Test-Path -LiteralPath $exe)) { $exe = Join-Path $transcribeRoot "SS-Transcribe-Translate.exe" }
