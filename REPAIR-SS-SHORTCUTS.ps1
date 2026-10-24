@@ -1,5 +1,6 @@
 # Repair desktop, Start Menu, and existing taskbar shortcut targets for SS apps.
-# Creates shortcuts only. Does not pull Git, alter application files, or delete user data.
+# By default only shortcuts are changed. Optional safe sync only fast-forwards clean checkouts.
+param([switch]$UpdateCleanCheckouts)
 $ErrorActionPreference = "Stop"
 $wsh = New-Object -ComObject WScript.Shell
 $homeDir = [Environment]::GetFolderPath("UserProfile")
@@ -7,6 +8,38 @@ $desktop = [Environment]::GetFolderPath("Desktop")
 $programs = [Environment]::GetFolderPath("Programs")
 $taskbarDir = Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
 $apps = @()
+
+if ($UpdateCleanCheckouts) {
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $git) { $git = Get-Command git -ErrorAction SilentlyContinue }
+    if (-not $git) {
+        Write-Warning "Git is unavailable; clean checkouts were not updated."
+    } else {
+        $checkouts = @(
+            [pscustomobject]@{Path=(Join-Path $homeDir "OpenAI");Branch="main"},
+            [pscustomobject]@{Path=(Join-Path $homeDir "Own code\Transcribe-Translate");Branch="master"},
+            [pscustomobject]@{Path=(Join-Path $homeDir "OpenAI\Transcribe-Translate");Branch="master"}
+        )
+        foreach ($checkout in $checkouts) {
+            if (-not (Test-Path -LiteralPath (Join-Path $checkout.Path ".git"))) { continue }
+            $status = & $git.Source -C $checkout.Path status --porcelain --untracked-files=all 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning ("Could not inspect checkout; leaving it unchanged: {0}" -f $checkout.Path)
+                continue
+            }
+            if ($status) {
+                Write-Warning ("LOCAL CHANGES PRESERVED; not updating dirty checkout: {0}" -f $checkout.Path)
+                continue
+            }
+            & $git.Source -C $checkout.Path pull --ff-only origin $checkout.Branch
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host ("PASS: fast-forwarded clean checkout: {0}" -f $checkout.Path)
+            } else {
+                Write-Warning ("Fast-forward update failed safely; checkout was not reset: {0}" -f $checkout.Path)
+            }
+        }
+    }
+}
 
 function Add-App([string]$Name, [string]$Target, [string]$WorkingDirectory, [string]$Icon, [string[]]$LegacyNames, [string]$Description) {
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
@@ -122,4 +155,4 @@ foreach ($app in $apps) {
     }
 }
 Write-Host ""
-Write-Host "No repository files, app data, chats, phone settings, or media files were changed."
+if (-not $UpdateCleanCheckouts) { Write-Host "No repository files, app data, chats, phone settings, or media files were changed." } else { Write-Host "Repository updates were attempted only for clean checkouts using git pull --ff-only; dirty checkouts were left untouched." }
