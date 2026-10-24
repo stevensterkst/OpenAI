@@ -10,7 +10,7 @@ $apps = @()
 
 function Add-App([string]$Name, [string]$Target, [string]$WorkingDirectory, [string]$Icon, [string[]]$LegacyNames, [string]$Description) {
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
-        Write-Warning "$Name: target not found: $Target"
+        Write-Warning "${Name}: target not found: $Target"
         return
     }
     $targetFull = (Resolve-Path -LiteralPath $Target).Path
@@ -48,7 +48,7 @@ function Add-App([string]$Name, [string]$Target, [string]$WorkingDirectory, [str
             }
         }
     }
-    $apps += [pscustomobject]@{Name=$Name;Target=$targetFull;Desktop=$paths[0];StartMenu=$paths[1];TaskbarShortcutFileUpdated=$taskbarUpdated}
+    $script:apps += [pscustomobject]@{Name=$Name;Target=$targetFull;Desktop=$paths[0];StartMenu=$paths[1];TaskbarShortcutFileUpdated=$taskbarUpdated}
 }
 
 # Brain repository candidates: script may be run from checkout or Downloads.
