@@ -80,7 +80,9 @@ $transcribeRoots = @(
     (Join-Path $homeDir "Transcribe-Translate"),
     (Join-Path $homeDir "OpenAI\transcribe-translate"),
     (Join-Path $homeDir "Downloads\SS-Transcribe-Translate-Windows"),
+    (Join-Path $homeDir "Downloads\SS-Transcribe-Translate-Windows\SS-Transcribe-Translate"),
     (Join-Path $homeDir "Downloads\SS-Transcribe-Translate"),
+    (Join-Path $homeDir "Downloads\SS-Transcribe-Translate\SS-Transcribe-Translate"),
     (Join-Path $homeDir "Downloads\Transcribe-Translate")
 ) | Select-Object -Unique
 # Prefer a packaged GUI build anywhere in the known locations, then fall back
