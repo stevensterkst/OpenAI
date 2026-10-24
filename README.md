@@ -21,17 +21,17 @@ SS is a local-first intelligent orchestration layer. It chooses a suitable model
 
 ## Windows shortcuts
 
-To repair/create the SS Brain desktop and Start Menu shortcuts from this checkout, run PowerShell in the repository root:
+To repair/create shortcuts for **SS Second Brain**, **SS Mobile View**, and **SS Transcribe-Translate**, run the combined repair script from the repository root:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\INSTALL-SS-BRAIN-SHORTCUTS.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\REPAIR-SS-SHORTCUTS.ps1
 ```
 
-The installer verifies both shortcut targets and working directories. Then pin **SS Second Brain** from the Start Menu to the taskbar; Windows may require the pin action to be done interactively.
+The script creates and verifies Desktop and Start Menu shortcuts, and updates matching existing taskbar shortcut files when possible. It does not pull Git, delete data, or change app files. If Windows does not update/create a pin, pin each app from the Start Menu interactively.
 
 ## Use
 
-Run `run-SS.bat`. It pulls the current fast-forward GitHub build, creates/updates `.venv`, installs requirements, safely reuses/restarts an existing SS process occupying 8765, and starts the **canonical `ss_entry:APP`** at **127.0.0.1:8765**. It never terminates an unrelated process occupying the port. The integrated workspace is at `127.0.0.1:8765/workspace`.
+Run `run-SS.bat`. It pulls the current fast-forward GitHub build, creates/updates `.venv`, installs requirements, reuses an already-running SS process occupying 8765 without killing it, and starts the **canonical `ss_entry:APP`** at **127.0.0.1:8765**. It never terminates an unrelated process occupying the port. The integrated workspace is at `127.0.0.1:8765/workspace`.
 
 `ss_entry.py` is the canonical 8765 composition layer. Do not launch `app.py` or `app_integrated.py` directly as competing SS servers.
 
