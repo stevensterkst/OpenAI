@@ -43,7 +43,7 @@ set "OWNER="
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%PORT% .*LISTENING"') do set "OWNER=%%P"
 if defined OWNER (echo ERROR: 8765 is occupied by unrelated PID !OWNER!. Nothing else will be killed.&pause&exit /b 3)
 echo Starting canonical SS Brain + Console + Workspace on 8765...
-start "SS Second Brain" http://127.0.0.1:%PORT%/
+start "SS Browser Waiter" powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%REPO%open-ss-browser.ps1" -Url "http://127.0.0.1:%PORT%/" -Port %PORT%
 "%PY%" -m uvicorn ss_entry:APP --host 127.0.0.1 --port %PORT%
 set "RC=%errorlevel%"
 echo SS stopped with exit code %RC%.
