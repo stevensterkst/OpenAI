@@ -89,6 +89,11 @@ echo.
 echo ==========================================================
 echo Launcher finished. Check the verified model lines above.
 echo The scrcpy windows remain open independently.
+echo.
+echo If neither phone was found, the window will stay open so you can read
+echo the diagnostics. Confirm Wireless debugging is ON and this PC is paired
+echo on each phone. Pairing port/code are separate from the connection port.
 echo ==========================================================
 echo.
+pause
 exit /b 0

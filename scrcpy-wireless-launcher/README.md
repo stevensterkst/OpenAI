@@ -67,9 +67,20 @@ The launcher does not contain the user's IP addresses, pairing ports or mDNS GUI
 
 The only device-specific values in the current two-phone example are the Android model strings. A future configuration file can make those model names user-editable without modifying the launcher itself.
 
-## Important limitation
+## Troubleshooting wireless connections
 
-ADB Wireless Debugging must actually be available on the phone. A launcher cannot reconnect to a phone whose Wireless Debugging service has been switched off by Android.
+The launcher discovers current `_adb-tls-connect._tcp` endpoints from `adb mdns services` on each run. It does not hard-code phone IP addresses, connection ports, pairing ports, or mDNS GUIDs. These values can change and must not be saved as permanent configuration.
+
+If discovery lists a phone but `adb connect` fails, discovery alone does not prove that the TLS ADB connection is authorized. Check the phone's **Developer options → Wireless debugging** screen and confirm:
+
+1. Wireless debugging is enabled and the phone is on the same Wi-Fi network as the PC.
+2. The PC appears under **Paired devices**. The pairing port/code shown by **Pair device with pairing code** is separate from the current IP address/connection port shown on the main Wireless debugging screen.
+3. If the PC is already paired, toggle Wireless debugging off and on, then rerun the launcher so it discovers the current endpoint. Do not keep using an old port.
+4. If the PC is not paired, pair it once using the phone's current pairing screen and the pairing command documented by Android Platform-Tools. Pairing is a one-time authorization step; do not put pairing codes or ports into the launcher.
+
+The launcher prints warnings when ADB cannot connect to discovered endpoints and keeps device serial output separate so the batch file can reliably identify each model. It only launches a phone after `adb devices -l` reports it as `device` and its model matches.
+
+ADB Wireless Debugging must remain enabled. A launcher cannot connect to a phone whose Wireless Debugging service is off.
 
 ## License
 
