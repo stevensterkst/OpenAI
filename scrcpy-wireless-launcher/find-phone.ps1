@@ -9,12 +9,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $wanted = ($Model -replace '_',' ' -replace '\s+',' ').Trim().ToLowerInvariant()
 
-function Write-Diagnostic([string]$Message) {
-    [Console]::Error.WriteLine("[ADB discovery] " + $Message)
-}
-
-# Never store or assume a phone IP address or port. Android chooses the
-# wireless-debugging TLS port dynamically; query the live mDNS advertisements.
+# Never hard-code IP addresses or ports. ADB mDNS advertises the current
+# TLS connection endpoint; the endpoint may change whenever Wireless Debugging
+# restarts or the phone reconnects to Wi-Fi.
 $endpoints = @()
 try {
     $services = @(& $AdbPath mdns services 2>$null)
@@ -24,54 +21,46 @@ try {
         $match = [regex]::Match($text, '(?<endpoint>(?:\d{1,3}\.){3}\d{1,3}:\d+)')
         if ($match.Success) { $endpoints += $match.Groups['endpoint'].Value }
     }
-    $endpoints = @($endpoints | Sort-Object -Unique)
 } catch {
-    Write-Diagnostic ("Could not query ADB mDNS services: " + $_.Exception.Message)
+    [Console]::Error.WriteLine("WARN: Could not query ADB mDNS services: $($_.Exception.Message)")
 }
+$endpoints = @($endpoints | Sort-Object -Unique)
 
-if ($endpoints.Count -eq 0) {
-    Write-Diagnostic "No live _adb-tls-connect._tcp endpoint was discovered. Confirm Wireless debugging is ON and both devices are on the same Wi-Fi/LAN."
-} else {
-    Write-Diagnostic ("Discovered {0} live wireless endpoint(s); trying current advertisements only." -f $endpoints.Count)
-    foreach ($endpoint in $endpoints) {
-        # The port is deliberately taken from this run's mDNS result.
-        $connectOutput = @(& $AdbPath connect $endpoint 2>&1)
-        $connectText = ($connectOutput | ForEach-Object { [string]$_ }) -join ' '
-        if ($LASTEXITCODE -eq 0 -and $connectText -match 'connected to|already connected to') {
-            Write-Diagnostic ("ADB accepted endpoint " + $endpoint)
-        } else {
-            Write-Diagnostic ("ADB did not connect to " + $endpoint + ". " + $connectText.Trim())
-        }
+foreach ($endpoint in $endpoints) {
+    # Keep connection output out of stdout: the .bat caller captures stdout
+    # and expects exactly one device serial from this script.
+    $connectOutput = @(& $AdbPath connect $endpoint 2>&1)
+    $connectText = ($connectOutput | ForEach-Object { [string]$_ }) -join ' '
+    if ($connectText -match 'failed to connect|cannot connect|unable to connect|error:') {
+        [Console]::Error.WriteLine("WARN: ADB could not connect to discovered endpoint $endpoint. $connectText")
     }
 }
 
-# Give ADB a brief moment to finish TLS authentication and enumerate devices.
-Start-Sleep -Milliseconds 700
+# Read the connected-device list after attempting every currently advertised
+# endpoint. Select by model, never by IP, port, or mDNS GUID.
 $matches = @()
-try {
-    $lines = @(& $AdbPath devices -l 2>$null)
-    foreach ($line in $lines) {
-        $parts = ([string]$line -split '\s+') | Where-Object { $_ -ne '' }
-        if ($parts.Count -lt 2 -or $parts[1] -ne 'device') { continue }
+$lines = @(& $AdbPath devices -l 2>$null)
+foreach ($line in $lines) {
+    $parts = ([string]$line -split '\s+') | Where-Object { $_ -ne '' }
+    if ($parts.Count -lt 2 -or $parts[1] -ne 'device') { continue }
 
-        $serial = $parts[0]
-        $modelToken = $parts | Where-Object { $_ -like 'model:*' } | Select-Object -First 1
-        if (-not $modelToken) { continue }
+    $serial = $parts[0]
+    $modelToken = $parts | Where-Object { $_ -like 'model:*' } | Select-Object -First 1
+    if (-not $modelToken) { continue }
 
-        $reported = ($modelToken.Substring(6) -replace '_',' ' -replace '\s+',' ').Trim().ToLowerInvariant()
-        if ($reported -eq $wanted) { $matches += $serial }
-    }
-} catch {
-    Write-Diagnostic ("Could not enumerate ADB devices: " + $_.Exception.Message)
+    $reported = ($modelToken.Substring(6) -replace '_',' ' -replace '\s+',' ').Trim().ToLowerInvariant()
+    if ($reported -eq $wanted) { $matches += $serial }
 }
 
 $selected = $matches | Select-Object -First 1
 if ($selected) {
-    # Standard output is reserved for the serial only: the .bat caller captures it.
     Write-Output $selected
     exit 0
 }
 
-Write-Diagnostic ("No authorized connected device reported model '" + $Model + "'.")
-Write-Diagnostic "If mDNS endpoints were found but connect failed, check that this PC is listed under the phone's Wireless debugging > Paired devices. The connect port and pairing port are different; do not use the pairing port with adb connect."
+if ($endpoints.Count -eq 0) {
+    [Console]::Error.WriteLine("NOT FOUND: No current _adb-tls-connect._tcp mDNS endpoints were advertised. On the phone, enable Wireless debugging and keep it on the same Wi-Fi network.")
+} else {
+    [Console]::Error.WriteLine("NOT FOUND: ADB did not report an authorized connected device matching '$Model'. If the phone's Wireless debugging screen lists this PC under Paired devices, toggle Wireless debugging off/on and rerun. If it is not paired, pair once using the phone's separate pairing port and code; do not use the connection port as the pairing port.")
+}
 exit 1
