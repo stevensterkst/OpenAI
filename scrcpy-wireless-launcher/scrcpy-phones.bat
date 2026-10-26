@@ -61,6 +61,8 @@ echo.
 
 set "G85_SERIAL="
 set "G54_SERIAL="
+set "FOUND_COUNT=0"
+set "FAIL_COUNT=0"
 
 for /f "usebackq delims=" %%S in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%find-phone.ps1" -AdbPath "%ADB%" -Model "moto g85 5G"`) do if not defined G85_SERIAL set "G85_SERIAL=%%S"
 
@@ -71,16 +73,18 @@ echo ---------------- DEVICE VERIFICATION ----------------
 
 if defined G85_SERIAL (
     echo [FOUND] Moto G85 candidate: !G85_SERIAL!
+    set /a FOUND_COUNT+=1
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G85_SERIAL!" -Title "Moto G85" -ExpectedModel "moto g85 5G"
-    if errorlevel 1 echo [ERROR] Moto G85 scrcpy launch failed.
+    if errorlevel 1 (echo [ERROR] Moto G85 scrcpy launch failed.&set /a FAIL_COUNT+=1)
 ) else (
     echo [--] Moto G85 not currently available.
 )
 
 if defined G54_SERIAL (
     echo [FOUND] Moto G54 candidate: !G54_SERIAL!
+    set /a FOUND_COUNT+=1
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%launch-phone.ps1" -AdbPath "%ADB%" -ScrcpyPath "%SCRCPY%" -Serial "!G54_SERIAL!" -Title "Moto G54" -ExpectedModel "moto g54 5G"
-    if errorlevel 1 echo [ERROR] Moto G54 scrcpy launch failed.
+    if errorlevel 1 (echo [ERROR] Moto G54 scrcpy launch failed.&set /a FAIL_COUNT+=1)
 ) else (
     echo [--] Moto G54 not currently available.
 )
@@ -91,4 +95,6 @@ echo Launcher finished. Check the verified model lines above.
 echo The scrcpy windows remain open independently.
 echo ==========================================================
 echo.
+if !FOUND_COUNT! EQU 0 (echo ERROR: No authorized, connected Moto G85/G54 device was found. No phone windows were launched.&exit /b 2)
+if !FAIL_COUNT! GTR 0 (echo ERROR: One or more phone launch attempts failed.&exit /b 1)
 exit /b 0
