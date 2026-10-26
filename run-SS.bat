@@ -5,10 +5,10 @@ title SS SECOND BRAIN v0.8.4
 set "PORT=8765"
 set "HERE=%~dp0"
 set "REPO="
-if exist "%HERE%.git\\" set "REPO=%HERE%"
-if not defined REPO if exist "%HERE%checkout\.git\\" set "REPO=%HERE%checkout\\"
-if not defined REPO if exist "%HERE%OpenAI\.git\\" set "REPO=%HERE%OpenAI\\"
-if not defined REPO if exist "%HERE%SS-GitHub\.git\\" set "REPO=%HERE%SS-GitHub\\"
+if exist "%HERE%.git\" set "REPO=%HERE%"
+if not defined REPO if exist "%HERE%checkout\.git\" set "REPO=%HERE%checkout\"
+if not defined REPO if exist "%HERE%OpenAI\.git\" set "REPO=%HERE%OpenAI\"
+if not defined REPO if exist "%HERE%SS-GitHub\.git\" set "REPO=%HERE%SS-GitHub\"
 if not defined REPO (echo ERROR: Could not locate the SS Git checkout.&echo Checked this folder and checkout\, OpenAI\ and SS-GitHub\ beneath it.&pause&exit /b 1)
 cd /d "%REPO%"
 echo ============================================================
