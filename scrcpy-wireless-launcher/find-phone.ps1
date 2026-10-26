@@ -9,8 +9,25 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $wanted = ($Model -replace '_',' ' -replace '\s+',' ').Trim().ToLowerInvariant()
-$matches = @()
 
+# Wireless debugging advertises connect endpoints via mDNS, but "adb devices"
+# does not list those phones until ADB connects to the advertised endpoint.
+# Connect only services explicitly advertised as _adb-tls-connect._tcp.
+try {
+    $services = & $AdbPath mdns services 2>$null
+    foreach ($line in $services) {
+        if ($line -notmatch '_adb-tls-connect\._tcp') { continue }
+        $endpoint = [regex]::Match($line, '(?<endpoint>(?:\d{1,3}\.){3}\d{1,3}:\d+)')
+        if (-not $endpoint.Success) { continue }
+        $address = $endpoint.Groups['endpoint'].Value
+        # Ignore stale/offline advertisements; model verification below is authoritative.
+        & $AdbPath connect $address 2>$null | Out-Null
+    }
+} catch {
+    # Continue to check already-connected USB/Wi-Fi devices if mDNS is unavailable.
+}
+
+$matches = @()
 $lines = & $AdbPath devices -l 2>$null
 
 foreach ($line in $lines) {
@@ -31,9 +48,7 @@ foreach ($line in $lines) {
     }
 }
 
-$selected = $matches |
-    Sort-Object @{Expression={if ($_ -like '*._adb-tls-connect._tcp') {0} else {1}}} |
-    Select-Object -First 1
+$selected = $matches | Select-Object -First 1
 
 if ($selected) {
     Write-Output $selected
